@@ -1,4 +1,4 @@
-# Race-day refresh: new forecast + official qualifying grid, then rebuild site.html and index.html.
+# Race-day refresh: new forecast + official qualifying grid, then rebuild the React app (web/dist) and site.html.
 # Run from the repo root: venv/bin/python pipeline/refresh.py
 import json, subprocess, sys, urllib.request, logging, warnings
 warnings.filterwarnings("ignore")
@@ -27,6 +27,12 @@ except Exception as e:
     print("qualifying not available, keeping Sprint Qualifying grid:", e)
 py = sys.executable
 subprocess.run([py, "-W", "ignore", "pipeline/train.py", "data/training_data.csv", grid, "data/clean_air_singapore_2026.csv", "data/owm.json", "data/model.json"], check=True)
-subprocess.run([py, "-W", "ignore", "pipeline/build_site.py", "pipeline/site.template.html", "data/model.json", "data/tracks.json", "data/training_data.csv", src, "site.html"], check=True)
+subprocess.run([py, "-W", "ignore", "pipeline/build_site.py", "data/model.json", "data/tracks.json", "data/training_data.csv", src], check=True)
+# React build; site.html is the one-file version used for the private Claude artifact
+import os, shutil
+node_bin = os.path.expanduser("~/.local/node/bin")
+env = {**os.environ, "PATH": node_bin + os.pathsep + os.environ.get("PATH", "")}
+subprocess.run(["npm", "run", "build:single"], cwd="web", env=env, check=True)
+shutil.copy("web/dist-single/artifact.html", "site.html")
 w = json.load(open("data/model.json"))["weather"]
 print(f"RESULT grid={src} rain={round(w['rain']*100)}% temp={w['temp']:.1f}C forecast_for={w['at']} UTC")

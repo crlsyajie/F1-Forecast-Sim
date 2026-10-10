@@ -1,0 +1,21 @@
+{
+  "name": "f1-forecast-sim",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build && node scripts/inline.mjs && node scripts/to-docs.mjs",
+    "preview": "vite preview",
+    "build:docs": "vite build && node scripts/to-docs.mjs"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "vite": "5.4.11"
+  }
+}

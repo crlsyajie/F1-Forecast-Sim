@@ -1,7 +1,7 @@
-# Pack model + tracks + 2026 results into the site template.
-import json, sys, datetime
+# Pack model + tracks + 2026 results into web/src/data/site-data.json for the React app.
+import json, sys, datetime, os
 import pandas as pd
-tpl, model_p, tracks_p, train_p, grid_src, out = sys.argv[1:7]
+model_p, tracks_p, train_p, grid_src = sys.argv[1:5]
 M = json.load(open(model_p))
 tracks = json.load(open(tracks_p))
 td = pd.read_csv(train_p)
@@ -22,14 +22,6 @@ for rid, g in td[td["RaceId"].str.startswith("2026-")].groupby("RaceId"):
 data = {"model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","boost")},
         "weather": M["weather"], "grid": M["grid"], "gridSource": grid_src, "tracks": tracks, "backtest": bt,
         "nextRound": nxt, "laps": LAPS, "shortNames": SHORT}
-html = open(tpl).read().replace("/*DATA*/", json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/"))
-open(out, "w").write(html)
-# standalone page for GitHub Pages (the artifact host adds this skeleton itself)
-import os
-skel = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-        '<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style></head><body>')
-head_part, body_part = html.split("<style>", 1)          # <title> and font links go in <head>
-page = skel.replace("</head><body>", head_part + "<style>" + body_part.split("</style>", 1)[0] + "</style></head><body>") + body_part.split("</style>", 1)[1] + "</body></html>"
-open(os.path.join(os.path.dirname(os.path.abspath(out)), "index.html"), "w").write(page)
-print(out, len(html), "next", nxt, "backtest", sorted(bt), "tracks", sum(1 for t in tracks if t.get("path")), "/", len(tracks))
+os.makedirs("web/src/data", exist_ok=True)
+json.dump(data, open("web/src/data/site-data.json", "w"), separators=(",", ":"), ensure_ascii=False)
+print("web/src/data/site-data.json", "next", nxt, "backtest", sorted(bt), "tracks", sum(1 for t in tracks if t.get("path")), "/", len(tracks))

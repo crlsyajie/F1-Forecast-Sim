@@ -7,3 +7,6 @@ cache_tracks/
 __pycache__/
 site.html
 .DS_Store
+web/node_modules/
+web/dist/
+web/dist-single/
