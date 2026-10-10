@@ -16,9 +16,12 @@ try:
     best = s.laps[s.laps["Deleted"] != True].groupby("Driver")["LapTime"].min().dt.total_seconds()
     r["QualifyingTime (s)"] = r["Abbreviation"].map(best).round(3)
     r = r.rename(columns={"Abbreviation": "Driver", "TeamName": "Team", "Position": "GridPosition"})
-    if r["GridPosition"].isna().any():
+    if r["GridPosition"].isna().all():
+        # official classification not published yet: order by fastest lap
         r["GridPosition"] = r["QualifyingTime (s)"].rank(method="first")
-    r["GridPosition"] = r["GridPosition"].astype(int)
+    # drivers with no classified position (e.g. no timed lap) start at the back, slowest first
+    r = r.sort_values(["GridPosition", "QualifyingTime (s)"], na_position="last").reset_index(drop=True)
+    r["GridPosition"] = range(1, len(r) + 1)
     r.sort_values("GridPosition").to_csv("data/q_singapore_2026.csv", index=False)
     if len(r) >= 18 and r["QualifyingTime (s)"].notna().sum() >= 15:
         src, grid = "Q", "data/q_singapore_2026.csv"
