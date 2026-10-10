@@ -60,7 +60,9 @@ On macOS without Homebrew, XGBoost needs the OpenMP library; copying scikit-lear
 
 ## Deploy
 
-GitHub Pages serves the built site from the `docs/` folder. In the repo settings, set **Pages → Build and deployment → Source: Deploy from a branch, Branch: main, Folder: /docs**. After changing the front end or the data, run `npm run build:docs` in `web/` (or `pipeline/refresh.py`), then commit and push.
+GitHub Actions (`.github/workflows/deploy.yml`) builds `web/` and publishes it to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Build and deployment → Source** to **GitHub Actions**.
+
+The `docs/` folder holds the same build for **Deploy from a branch → /docs**, as a fallback that needs no Actions. Refresh it with `npm run build:docs` in `web/`.
 
 ## Credits
 
