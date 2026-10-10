@@ -1,6 +1,6 @@
 # Race-day refresh: new forecast + official qualifying grid, then rebuild the React app (web/dist) and site.html.
 # Run from the repo root: venv/bin/python pipeline/refresh.py
-import json, subprocess, sys, urllib.request, logging, warnings
+import json, os, subprocess, sys, urllib.request, logging, warnings
 warnings.filterwarnings("ignore")
 key = open("owm_key").read().strip()
 url = f"https://api.openweathermap.org/data/2.5/forecast?lat=1.2914&lon=103.8640&units=metric&appid={key}"
@@ -27,6 +27,9 @@ except Exception as e:
     print("qualifying not available, keeping Sprint Qualifying grid:", e)
 py = sys.executable
 subprocess.run([py, "-W", "ignore", "pipeline/train.py", "data/training_data.csv", grid, "data/clean_air_singapore_2026.csv", "data/owm.json", "data/model.json"], check=True)
+# qualifying model: re-score with the real qualifying result once it exists (data/q_singapore_2026.csv)
+if os.path.exists("data/practice_best.csv"):
+    subprocess.run([py, "-W", "ignore", "pipeline/train_quali.py"], check=True)
 subprocess.run([py, "-W", "ignore", "pipeline/build_site.py", "data/model.json", "data/tracks.json", "data/training_data.csv", src], check=True)
 # React build; site.html is the one-file version used for the private Claude artifact
 import os, shutil

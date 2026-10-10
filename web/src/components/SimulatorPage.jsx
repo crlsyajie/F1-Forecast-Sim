@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { D, tracks, scenario, shortName, status } from "../lib/model";
+import { D, MODELS, hasSprint, tracks, scenario, shortName, status } from "../lib/model";
 import { makeRace } from "../lib/race";
 import { buildGeo, drawRace } from "../lib/geo";
 import { computeTower, newBroadcast } from "../lib/broadcast";
@@ -31,15 +31,27 @@ function useTicker() {
 }
 
 function headNote(SC) {
+  if (SC.st === "sprint") return "Sprint replay: the model runs on Friday's Sprint Qualifying grid over the real 20-lap sprint distance. After the flag, the right-hand column shows the real sprint result (DNF = retired).";
   if (SC.st === "done") return `Predicted from that weekend's real qualifying. After the flag, the right-hand column shows where each driver actually finished. ${SC.inTrain ? "This race was part of the training data, so it is not an independent test." : "This race was held out of training, so it is a fair test."}`;
   if (SC.st === "next") return D.gridSource === "Q" ? "Using the official qualifying grid and your Inputs settings." : "Grid is Friday's Sprint Qualifying order until Grand Prix qualifying (Sat 21:00 SGT) is loaded. Change it on the Inputs page.";
   if (SC.st === "nodata") return "This round has been raced, but its timing data could not be downloaded yet. It uses the Inputs grid with this circuit's pole time as a what-if.";
   return "No qualifying yet for this round. It uses the Inputs grid with this circuit's 2025 pole time, so treat it as a what-if.";
 }
-const EYEBROW = { done: "Completed: prediction vs result", next: "Next race: live prediction", nodata: "Completed: result data pending", upcoming: "Upcoming: placeholder grid" };
+const EYEBROW = { sprint: "Sprint: prediction vs result", done: "Completed: prediction vs result", next: "Next race: live prediction", nodata: "Completed: result data pending", upcoming: "Upcoming: placeholder grid" };
 
-export default function SimulatorPage({ round, setRound, inputs, active }) {
-  const SC = useMemo(() => scenario(round, inputs), [round, inputs]);
+export function ModelSwitch({ value, onChange }) {
+  return (
+    <div className="seg" role="group" aria-label="Prediction model">
+      {Object.entries(MODELS).map(([k, label]) => (
+        <button key={k} type="button" aria-pressed={value === k} onClick={() => onChange(k)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+export default function SimulatorPage({ round, setRound, inputs, setModel, session, setSession, active }) {
+  const sess = session === "sprint" && hasSprint(round) ? "sprint" : "race";
+  const SC = useMemo(() => scenario(round, inputs, inputs.model, sess), [round, inputs, sess]);
   const race = useMemo(() => makeRace(SC), [SC]);
   const geo = useMemo(() => buildGeo(SC.t), [SC.t]);
 
@@ -71,10 +83,10 @@ export default function SimulatorPage({ round, setRound, inputs, active }) {
   const setPlay = (p) => { sim.current.playing = p; setPlaying(p); };
 
   // new race (or new inputs): keep the same point in the race when only the inputs changed
-  const lastRound = useRef(round);
+  const lastRound = useRef(round + sess);
   useEffect(() => {
-    const prev = raceRef.current, frac = prev && lastRound.current === round ? sim.current.t / prev.end : 0;
-    raceRef.current = race; geoRef.current = geo; lastRound.current = round;
+    const key = round + sess, prev = raceRef.current, frac = prev && lastRound.current === key ? sim.current.t / prev.end : 0;
+    raceRef.current = race; geoRef.current = geo; lastRound.current = key;
     sim.current.t = Math.min(race.end, frac * race.end);
     B.current = newBroadcast(); ticker.reset();
     draw(); updateUi(false);
@@ -122,6 +134,13 @@ export default function SimulatorPage({ round, setRound, inputs, active }) {
       <div className="sim-head">
         <div className="row between">
           <span className="eyebrow">Round {t.round} · {EYEBROW[SC.st]}</span>
+          {hasSprint(round) && (
+            <div className="seg" role="group" aria-label="Session">
+              <button type="button" aria-pressed={sess === "race"} onClick={() => setSession("race")}>Race</button>
+              <button type="button" aria-pressed={sess === "sprint"} onClick={() => setSession("sprint")}>Sprint</button>
+            </div>
+          )}
+          <ModelSwitch value={inputs.model} onChange={setModel} />
           <label className="row" htmlFor="raceSel">
             <span className="muted" style={{ fontSize: ".82rem" }}>Race</span>
             <select id="raceSel" value={round} onChange={(e) => setRound(+e.target.value)}>
@@ -133,7 +152,7 @@ export default function SimulatorPage({ round, setRound, inputs, active }) {
             </select>
           </label>
         </div>
-        <h1>{t.name.replace("Grand Prix", "GP")} 2026</h1>
+        <h1>{t.name.replace("Grand Prix", "GP")} 2026{sess === "sprint" ? " · Sprint" : ""}</h1>
         <div className="sim-meta">
           <span><b>{shortName(t)}</b></span><span>{fmtDate(t.date)}</span><span>{SC.laps} laps</span>
           <span>Rain {Math.round(SC.rain * 100)}% · {SC.temp.toFixed(1)}°C</span><span>Track map: {t.source}</span>
@@ -150,6 +169,13 @@ export default function SimulatorPage({ round, setRound, inputs, active }) {
           </div>
         ))}
       </div>
+
+      <p className="picks">
+        <span className="muted">Model picks to win:</span>
+        {Object.entries(MODELS).map(([k, label]) => (
+          <span key={k} className={inputs.model === k ? "on" : ""}>{label} <b>{surname(SC.picks[k])}</b></span>
+        ))}
+      </p>
 
       <div className="sim">
         <div className="stage">

@@ -1,34 +1,42 @@
 import { useMemo } from "react";
-import { D, M, NEXT, byRound, scenario, shortName } from "../lib/model";
+import { D, M, MODELS, NEXT, byRound, scenario, shortName } from "../lib/model";
+import { ModelSwitch } from "./SimulatorPage";
 
 const LABELS = ["Gap to pole (%)", "Grid position", "Team gap to pole (%)", "Rain", "Temperature"];
 const rid = (s) => { const [y, r] = s.split("-"); return `${y} round ${+r}`; };
 
 function Importance() {
-  const W = 460, rowH = 32, l = 150, r = 56, H = LABELS.length * rowH + 6, mx = Math.max(...M.importance);
+  // XGBoost (gain) and Random Forest (impurity) importance, side by side per feature
+  const W = 480, rowH = 40, l = 150, r = 56, H = LABELS.length * rowH + 30;
+  const mx = Math.max(...M.importance, ...M.rf.importance);
+  const bar = (v) => (mx ? (v / mx) * (W - l - r) : 0);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W }} role="img" aria-label="Feature importance">
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W }} role="img" aria-label="Feature importance for both models">
       {LABELS.map((name, i) => {
-        const v = M.importance[i], w = mx ? (v / mx) * (W - l - r) : 0, y = 3 + i * rowH;
+        const y = 4 + i * rowH, a = M.importance[i], b = M.rf.importance[i];
         return (
           <g key={name}>
-            <text className="lbl" x={l - 8} y={y + rowH / 2 + 4} textAnchor="end">{name}</text>
-            <rect x={l} y={y + 7} width={Math.max(w, 1)} height={rowH - 14} fill="var(--red)" />
-            <text x={l + w + 6} y={y + rowH / 2 + 4}>{(v * 100).toFixed(1)}%</text>
+            <text className="lbl" x={l - 8} y={y + rowH / 2 + 2} textAnchor="end">{name}</text>
+            <rect x={l} y={y + 6} width={Math.max(bar(a), 1)} height={11} fill="var(--red)" />
+            <text x={l + bar(a) + 6} y={y + 15}>{(a * 100).toFixed(1)}%</text>
+            <rect x={l} y={y + 20} width={Math.max(bar(b), 1)} height={11} fill="#d9d9db" />
+            <text x={l + bar(b) + 6} y={y + 29}>{(b * 100).toFixed(1)}%</text>
           </g>
         );
       })}
+      <rect x={l} y={H - 18} width="10" height="10" fill="var(--red)" /><text x={l + 15} y={H - 9}>XGBoost</text>
+      <rect x={l + 90} y={H - 18} width="10" height="10" fill="#d9d9db" /><text x={l + 105} y={H - 9}>Random Forest</text>
     </svg>
   );
 }
 
-export default function ModelPage({ onReplay }) {
+export default function ModelPage({ onReplay, model, setModel }) {
   const m = M.metrics, refLap = (byRound[NEXT]?.poleTime || 95) * M.qualiToRaceFactor;
   const backtest = useMemo(() => Object.keys(D.backtest).map(Number).sort((a, b) => a - b).map((rd) => {
-    const sc = scenario(rd, null), pred = sc.rows.slice(0, 3).map((x) => x.Driver);
+    const sc = scenario(rd, null, model), pred = sc.rows.slice(0, 3).map((x) => x.Driver);
     const act = sc.rows.filter((x) => Number.isFinite(x.actual)).sort((a, b) => a.actual - b.actual).slice(0, 3).map((x) => x.Driver);
     return { rd, sc, pred, act, win: pred[0] === act[0], hits: pred.filter((d) => act.includes(d)).length };
-  }), []);
+  }), [model]);
   const stats = [
     [`${m.mae.toFixed(3)}%`, `Mean error on race pace, about ${((m.mae / 100) * refLap).toFixed(2)} s/lap`],
     [m.r2.toFixed(2), "R² on held-out races"],
@@ -39,22 +47,47 @@ export default function ModelPage({ onReplay }) {
   return (
     <main className="page" id="page-model">
       <div className="sim-head">
-        <span className="eyebrow">XGBoost, from F1.ipynb</span>
+        <span className="eyebrow">XGBoost + Random Forest, from F1.ipynb</span>
         <h1>How good is the model?</h1>
       </div>
       <div className="cards">
         <div className="panel">
-          <h3>Accuracy on held-out races</h3>
+          <h3>XGBoost accuracy on held-out races</h3>
           <div className="stats">{stats.map(([v, k]) => <div className="stat" key={k}><span className="v num">{v}</span><span className="k">{k}</span></div>)}</div>
           <p className="muted" style={{ fontSize: ".85rem" }}>
             Trained on {m.trainRows} driver-races from {m.races - m.testRaces.length} races; tested on {m.testRows} from {m.testRaces.length} races it never saw: {m.testRaces.join(", ")}.
           </p>
         </div>
-        <div className="panel"><h3>Feature importance (gain)</h3><Importance /></div>
+        <div className="panel"><h3>Feature importance</h3><Importance /></div>
+      </div>
+      <div className="panel">
+        <div className="row between"><h3>Two models compared</h3><ModelSwitch value={model} onChange={setModel} /></div>
+        <div className="scroll">
+          <table className="t">
+            <thead><tr><th>Model</th><th className="r">Error on race pace</th><th className="r">About</th><th className="r">R²</th><th>Notes</th></tr></thead>
+            <tbody>
+              {[["xgb", "Gradient-boosted trees with monotone constraints (slower qualifying can never predict a faster race)."],
+                ["rf", "150 independent trees averaged; no monotone constraints, so it can pick up odd patterns."],
+                ["avg", "Mean of the two predictions. Usually the safest choice."]].map(([k, note]) => {
+                const m = M.models[k], best = Math.min(...Object.values(M.models).map((x) => x.mae)) === m.mae;
+                return (
+                  <tr key={k} style={model === k ? { background: "rgba(225,6,0,.08)" } : undefined}>
+                    <td><b>{MODELS[k]}</b>{best ? <span className="chip live" style={{ marginLeft: 8 }}>Most accurate</span> : null}</td>
+                    <td className="r num">{m.mae.toFixed(3)}%</td>
+                    <td className="r num">{((m.mae / 100) * refLap).toFixed(2)} s/lap</td>
+                    <td className="r num">{m.r2.toFixed(2)}</td>
+                    <td className="muted" style={{ whiteSpace: "normal", minWidth: 220 }}>{note}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted" style={{ fontSize: ".82rem" }}>All three are scored on the same {m.testRaces.length} held-out races. The selected model drives the simulator and the table below.</p>
       </div>
       <div className="panel">
         <div className="row between">
-          <h3>2026 so far: predicted vs actual</h3>
+          <h3>2026 so far: predicted vs actual ({MODELS[model]})</h3>
           <span className="muted" style={{ fontSize: ".8rem" }}>Races marked "trained on" were part of the training data.</span>
         </div>
         <div className="scroll">

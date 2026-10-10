@@ -4,8 +4,9 @@ import SimulatorPage from "./components/SimulatorPage";
 import TracksPage from "./components/TracksPage";
 import InputsPage from "./components/InputsPage";
 import ModelPage from "./components/ModelPage";
+import WeekendPage from "./components/WeekendPage";
 
-const ROUTES = ["sim", "tracks", "inputs", "model"];
+const ROUTES = ["sim", "weekend", "tracks", "inputs", "model"];
 const readRoute = () => (ROUTES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "sim");
 
 const IconInputs = () => (
@@ -21,14 +22,16 @@ export default function App() {
   const [route, setRoute] = useState(readRoute);
   const [round, setRound] = useState(byRound[NEXT]?.path ? NEXT : tracks[0].round);
   const [inputs, setInputs] = useState(defaultInputs);
+  const [session, setSession] = useState("race");
 
   useEffect(() => {
     const on = () => { setRoute(readRoute()); window.scrollTo(0, 0); };
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
+  const setModel = (model) => setInputs((s) => ({ ...s, model }));
   const go = (r) => { location.hash = r; };
-  const simulate = (rd) => { setRound(rd); go("sim"); };
+  const simulate = (rd, sess = "race") => { setRound(rd); setSession(sess); go("sim"); };
   const cur = (r) => (route === r ? "page" : undefined);
 
   return (
@@ -40,6 +43,7 @@ export default function App() {
           </a>
           <div className="tabs">
             <a href="#sim" aria-current={cur("sim")}>Simulator</a>
+            <a href="#weekend" aria-current={cur("weekend")}>Weekend</a>
             <a href="#tracks" aria-current={cur("tracks")}>Tracks</a>
             <a href="#inputs" aria-current={cur("inputs")}>Inputs</a>
             <a href="#model" aria-current={cur("model")}>Model</a>
@@ -51,10 +55,11 @@ export default function App() {
         </div>
       </nav>
       {/* the simulator stays mounted so the race keeps its place when you visit other pages */}
-      <div hidden={route !== "sim"}><SimulatorPage round={round} setRound={setRound} inputs={inputs} active={route === "sim"} /></div>
+      <div hidden={route !== "sim"}><SimulatorPage round={round} setRound={setRound} inputs={inputs} setModel={setModel} session={session} setSession={setSession} active={route === "sim"} /></div>
+      {route === "weekend" && <WeekendPage inputs={inputs} model={inputs.model} setModel={setModel} onWatchSprint={() => simulate(NEXT, "sprint")} />}
       {route === "tracks" && <TracksPage onPick={simulate} />}
       {route === "inputs" && <InputsPage inputs={inputs} setInputs={setInputs} />}
-      {route === "model" && <ModelPage onReplay={simulate} />}
+      {route === "model" && <ModelPage onReplay={simulate} model={inputs.model} setModel={setModel} />}
     </div>
   );
 }

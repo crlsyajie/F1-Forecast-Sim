@@ -19,7 +19,16 @@ for rid, g in td[td["RaceId"].str.startswith("2026-")].groupby("RaceId"):
                "temp": float(g["Temperature"].iloc[0]),
                "rows": [{"Driver": r.Driver, "Team": r.Team, "GridPosition": int(r.GridPosition), "Q": float(r["BestQ (s)"]),
                          "Finish": None if pd.isna(r.FinishPosition) else int(r.FinishPosition)} for _, r in g.iterrows()]}
-data = {"model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet")},
+sq = pd.read_csv("data/sq_singapore_2026.csv")
+sprint = None
+if os.path.exists("data/sprint_singapore_2026.csv"):
+    res = pd.read_csv("data/sprint_singapore_2026.csv")
+    full = int(res["Laps"].max())
+    sprint = {"round": nxt, "laps": full,
+              "grid": [{"Driver": r.Driver, "Team": r.Team, "GridPosition": int(r.GridPosition), "Q": float(r["QualifyingTime (s)"])} for _, r in sq.iterrows()],
+              "result": {r.Driver: (int(r.Position) if r.Laps >= full - 1 else None) for _, r in res.iterrows()}}
+quali = json.load(open("data/quali_model.json")) if os.path.exists("data/quali_model.json") else None
+data = {"quali": quali, "sprint": sprint, "model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","rf","models")},
         "weather": M["weather"], "grid": M["grid"], "gridSource": grid_src, "tracks": tracks, "backtest": bt,
         "nextRound": nxt, "laps": LAPS, "shortNames": SHORT}
 os.makedirs("web/src/data", exist_ok=True)

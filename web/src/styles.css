@@ -250,6 +250,24 @@ footer { color: var(--muted); font-size: .72rem; text-transform: uppercase; lett
   .flag { bottom: 12px; right: 12px; } .bigteam, .bigno { display: none; }
 }
 
+/* Model switch and picks */
+.seg { display: inline-flex; }
+.seg button { padding: 6px 10px; font-size: .64rem; margin-left: -1px; }
+.picks { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; max-width: none; color: var(--muted); }
+.picks b { color: var(--ink); font-weight: 800; }
+.picks .on b { color: var(--red-hi); }
+
+/* Weekend page */
+.sched { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 1px solid var(--line); }
+.sched > div { display: grid; gap: 4px; padding: 10px 12px; border-right: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+.sched > div:last-child { border-right: 0; }
+.sched b { color: var(--ink); text-transform: uppercase; letter-spacing: .08em; font-size: .74rem; }
+.sched .chip { justify-self: start; }
+.q-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.q-stats .stat:nth-child(n) { border-bottom: 0; border-right: 1px solid var(--line); } .q-stats .stat:last-child { border-right: 0; }
+.qbar { height: 6px; background: rgba(255,255,255,.06); } .qbar i { display: block; height: 100%; }
+@media (max-width: 760px) { .q-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* React: row flash overlays restart their animation by remounting */
 .bt-row { overflow: hidden; }
 .bt-flash { position: absolute; inset: 0; pointer-events: none; z-index: -1; }

@@ -35,7 +35,7 @@ export function computeTower(race, t, B, mode, playing) {
     }
     const c = B.chg[x.Driver];
     let chgText = "", chgCls = "";
-    if (race.st === "done" && finished) {
+    if (race.hasActual && finished) {
       const a = x.actual;
       chgText = Number.isFinite(a) ? "P" + a : "DNF";
       chgCls = a === i + 1 ? "up" : "muted";

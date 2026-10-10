@@ -5,6 +5,7 @@ import numpy as np, pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
 train_csv, grid_csv, pace_csv, owm_json, out = sys.argv[1:6]
@@ -79,6 +80,34 @@ imp = booster.get_score(importance_type="gain")
 gain = np.array([imp.get(f"f{i}", 0.0) for i in range(len(feature_cols))])
 importance = (gain / gain.sum()).round(4).tolist()
 
+# Second model: Random Forest on the same features and split
+rf = RandomForestRegressor(n_estimators=150, max_depth=8, min_samples_leaf=6, max_features=0.8, random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+rf_pred_test = rf.predict(X_test)
+avg_pred_test = (y_pred_test + rf_pred_test) / 2
+model_metrics = {
+    name: {"mae": round(float(mean_absolute_error(y_test, p)), 4), "r2": round(float(r2_score(y_test, p)), 3)}
+    for name, p in (("xgb", y_pred_test), ("rf", rf_pred_test), ("avg", avg_pred_test))
+}
+
+def rf_compact(est, node=0):
+    t = est.tree_
+    if t.children_left[node] == -1:
+        return round(float(t.value[node][0][0]), 5)
+    return [int(t.feature[node]), float(t.threshold[node]), rf_compact(est, t.children_left[node]), rf_compact(est, t.children_right[node])]
+
+rf_trees = [rf_compact(e) for e in rf.estimators_]
+
+def rf_walk(t, x):
+    while isinstance(t, list):
+        t = t[2] if np.float32(x[t[0]]) <= t[1] else t[3]   # sklearn: left when x <= threshold
+    return t
+
+rf_check = np.array([np.mean([rf_walk(t, r) for t in rf_trees]) for r in X_test])
+rf_diff = float(np.abs(rf_check - rf_pred_test).max())
+assert rf_diff < 1e-3, rf_diff
+rf_importance = (rf.feature_importances_ / rf.feature_importances_.sum()).round(4).tolist()
+
 test_races = training_data.iloc[test_idx][["RaceId", "Event"]].drop_duplicates().sort_values("RaceId")
 
 # cell 13
@@ -116,10 +145,13 @@ out_obj = {
                 "testRaceIds": test_races["RaceId"].tolist(),
                 "firstRace": training_data["RaceId"].min(), "lastRace": training_data["RaceId"].max()},
     "importance": importance,
+    "rf": {"trees": rf_trees, "importance": rf_importance},
+    "models": model_metrics,
     "wet": driver_wet_performance,
     "grid": json.loads(grid.round(3).to_json(orient="records")),
     "weather": weather,
 }
 json.dump(out_obj, open(out, "w"), separators=(",", ":"))
 print(json.dumps({k: out_obj[k] for k in ("metrics", "importance", "qualiToRaceFactor", "baseScore")}, indent=1))
+print("models", model_metrics, "rf trees", len(rf_trees), "rf diff", rf_diff)
 print("trees", len(ctrees), "max js/py diff", max_diff, "weather", weather["at"], weather["rain"], weather["temp"])
