@@ -27,8 +27,21 @@ if os.path.exists("data/sprint_singapore_2026.csv"):
     sprint = {"round": nxt, "laps": full,
               "grid": [{"Driver": r.Driver, "Team": r.Team, "GridPosition": int(r.GridPosition), "Q": float(r["QualifyingTime (s)"])} for _, r in sq.iterrows()],
               "result": {r.Driver: (int(r.Position) if r.Laps >= full - 1 else None) for _, r in res.iterrows()}}
+# Main model: the Formula 1 GP Predictor's latest output (written by the /f1-gp-update skill; read-only here)
+PRED = os.environ.get("PREDICTOR_JSON", os.path.expanduser("~/.f1-gp-predictor/data/prediction.json"))
+predictor = None
+if os.path.exists(PRED):
+    pj = json.load(open(PRED))
+    keep = ("model", "source", "generated_utc", "data_updated_utc", "event", "grid_source", "weather", "backtest", "training_races")
+    predictor = {k: pj.get(k) for k in keep}
+    predictor["race"] = [{k: r[k] for k in ("PredictedPosition", "Driver", "Team", "GridPosition", "PredictedRaceTime (s)", "PredictedRacePace (%)", "Win %", "Podium %")}
+                         for r in pj["race"]]
+    predictor["qualifying_prediction"] = pj.get("qualifying_prediction")
+    print("predictor:", predictor["event"]["id"], predictor["generated_utc"], predictor["grid_source"], "winner", predictor["race"][0]["Driver"])
+else:
+    print("predictor: no prediction.json found at", PRED)
 quali = json.load(open("data/quali_model.json")) if os.path.exists("data/quali_model.json") else None
-data = {"quali": quali, "sprint": sprint, "model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","rf","models")},
+data = {"predictor": predictor, "quali": quali, "sprint": sprint, "model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","rf","models")},
         "weather": M["weather"], "grid": M["grid"], "gridSource": grid_src, "tracks": tracks, "backtest": bt,
         "nextRound": nxt, "laps": LAPS, "shortNames": SHORT}
 os.makedirs("web/src/data", exist_ok=True)

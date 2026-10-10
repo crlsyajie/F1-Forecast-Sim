@@ -12,6 +12,15 @@ An unofficial fan project that predicts Formula 1 race results with XGBoost and 
 - **Inputs** – rain chance, temperature and an editable qualifying grid. The model reruns in the browser.
 - **Model** – accuracy on held-out races, feature importance, and predicted vs actual podiums for completed 2026 rounds.
 
+## Main model
+
+The race prediction shown by default comes from the **Formula 1 GP Predictor** notebook (a qualifying-based XGBoost model with
+monotone constraints and calibrated win/podium chances). It is updated in that project with the `/f1-gp-update` skill, which
+writes `~/.f1-gp-predictor/data/prediction.json`; `pipeline/build_site.py` reads that file (read-only) and bundles it into the
+site. Where it has no prediction (other rounds, the sprint), the site says so and shows a secondary model instead.
+
+## Secondary models
+
 ## How the model works
 
 - Training data: every race from 2024 to 2026 round 9 via [FastF1](https://github.com/theOehrly/Fast-F1), one row per driver.

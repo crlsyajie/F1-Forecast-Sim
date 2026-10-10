@@ -22,6 +22,7 @@ export default function InputsPage({ inputs: S, setInputs }) {
       <div className="sim-head">
         <span className="eyebrow">Next race and upcoming rounds</span>
         <h1>Race inputs</h1>
+        <p className="note">The main model (Formula 1 GP Predictor) is updated in its own notebook, so these settings only change the secondary models (Average, XGBoost, Random Forest).</p>
         <p className="muted">These settings drive the prediction for the next race and the placeholder grids for later rounds. Completed rounds always use their real qualifying.</p>
       </div>
       <div className="cols">

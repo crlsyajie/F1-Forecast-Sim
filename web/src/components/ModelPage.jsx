@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { D, M, MODELS, NEXT, byRound, scenario, shortName } from "../lib/model";
+import { D, M, MODELS, NEXT, P, SECONDARY, byRound, scenario, shortName } from "../lib/model";
 import { ModelSwitch } from "./SimulatorPage";
 
 const LABELS = ["Gap to pole (%)", "Grid position", "Team gap to pole (%)", "Rain", "Temperature"];
@@ -33,7 +33,7 @@ function Importance() {
 export default function ModelPage({ onReplay, model, setModel }) {
   const m = M.metrics, refLap = (byRound[NEXT]?.poleTime || 95) * M.qualiToRaceFactor;
   const backtest = useMemo(() => Object.keys(D.backtest).map(Number).sort((a, b) => a - b).map((rd) => {
-    const sc = scenario(rd, null, model), pred = sc.rows.slice(0, 3).map((x) => x.Driver);
+    const sc = scenario(rd, null, model === "main" ? "avg" : model), pred = sc.rows.slice(0, 3).map((x) => x.Driver);
     const act = sc.rows.filter((x) => Number.isFinite(x.actual)).sort((a, b) => a.actual - b.actual).slice(0, 3).map((x) => x.Driver);
     return { rd, sc, pred, act, win: pred[0] === act[0], hits: pred.filter((d) => act.includes(d)).length };
   }), [model]);
@@ -47,12 +47,24 @@ export default function ModelPage({ onReplay, model, setModel }) {
   return (
     <main className="page" id="page-model">
       <div className="sim-head">
-        <span className="eyebrow">XGBoost + Random Forest, from F1.ipynb</span>
+        <span className="eyebrow">Formula 1 GP Predictor + secondary models</span>
         <h1>How good is the model?</h1>
       </div>
+      {P && (
+        <div className="panel">
+          <div className="row between"><h3>Main model: Formula 1 GP Predictor</h3><span className="chip live">Default</span></div>
+          <div className="stats q-stats">
+            <div className="stat"><span className="v num">{Math.round(P.backtest.winner_picked * 100)}%</span><span className="k">Winners picked ({P.backtest.races}-race backtest)</span></div>
+            <div className="stat"><span className="v num">{P.backtest.podium_hits.toFixed(1)}/3</span><span className="k">Podium drivers right per race</span></div>
+            <div className="stat"><span className="v num">{P.backtest.finish_order_spearman.toFixed(2)}</span><span className="k">Finish-order correlation (Spearman)</span></div>
+            <div className="stat"><span className="v num">{P.training_races}</span><span className="k">Races in training data</span></div>
+          </div>
+          <p className="muted" style={{ fontSize: ".85rem" }}>{P.model}. Prediction for the {P.event.name} generated {P.generated_utc} on a {P.grid_source} grid. It comes from the Formula 1 GP Predictor notebook and is updated there; this site shows its output. Its backtest uses different races from the secondary models below, so the numbers are not directly comparable.</p>
+        </div>
+      )}
       <div className="cards">
         <div className="panel">
-          <h3>XGBoost accuracy on held-out races</h3>
+          <h3>XGBoost accuracy on held-out races (secondary)</h3>
           <div className="stats">{stats.map(([v, k]) => <div className="stat" key={k}><span className="v num">{v}</span><span className="k">{k}</span></div>)}</div>
           <p className="muted" style={{ fontSize: ".85rem" }}>
             Trained on {m.trainRows} driver-races from {m.races - m.testRaces.length} races; tested on {m.testRows} from {m.testRaces.length} races it never saw: {m.testRaces.join(", ")}.
@@ -61,7 +73,7 @@ export default function ModelPage({ onReplay, model, setModel }) {
         <div className="panel"><h3>Feature importance</h3><Importance /></div>
       </div>
       <div className="panel">
-        <div className="row between"><h3>Two models compared</h3><ModelSwitch value={model} onChange={setModel} /></div>
+        <div className="row between"><h3>Secondary models compared</h3><ModelSwitch value={model} onChange={setModel} /></div>
         <div className="scroll">
           <table className="t">
             <thead><tr><th>Model</th><th className="r">Error on race pace</th><th className="r">About</th><th className="r">R²</th><th>Notes</th></tr></thead>
@@ -87,8 +99,8 @@ export default function ModelPage({ onReplay, model, setModel }) {
       </div>
       <div className="panel">
         <div className="row between">
-          <h3>2026 so far: predicted vs actual ({MODELS[model]})</h3>
-          <span className="muted" style={{ fontSize: ".8rem" }}>Races marked "trained on" were part of the training data.</span>
+          <h3>2026 so far: predicted vs actual ({SECONDARY[model] || "Average"})</h3>
+          <span className="muted" style={{ fontSize: ".8rem" }}>Secondary model. Races marked "trained on" were part of the training data.</span>
         </div>
         <div className="scroll">
           <table className="t">

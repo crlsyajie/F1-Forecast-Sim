@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { D, MODELS, hasSprint, tracks, scenario, shortName, status } from "../lib/model";
+import { D, MODELS, P, hasSprint, tracks, scenario, shortName, status } from "../lib/model";
 import { makeRace } from "../lib/race";
 import { buildGeo, drawRace } from "../lib/geo";
 import { computeTower, newBroadcast } from "../lib/broadcast";
@@ -157,7 +157,9 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
           <span><b>{shortName(t)}</b></span><span>{fmtDate(t.date)}</span><span>{SC.laps} laps</span>
           <span>Rain {Math.round(SC.rain * 100)}% · {SC.temp.toFixed(1)}°C</span><span>Track map: {t.source}</span>
         </div>
-        <p className="note">{headNote(SC)}</p>
+        {SC.source !== "main" && <p className="note">{headNote(SC)}</p>}
+        {SC.source === "main" && <p className="note main-note">Main model: <b>Formula 1 GP Predictor</b> ({P.grid_source}, generated {P.generated_utc}). Win and podium chances are calibrated on its {P.backtest?.races}-race backtest. Inputs-page edits only change the secondary models.</p>}
+        {SC.fallback && <p className="note warn-note">Predictor prediction not available: {SC.fallback} Showing the secondary model (Average) instead.</p>}
       </div>
 
       <div className="podium" aria-label="Predicted podium">
@@ -165,7 +167,7 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
           <div className="pod" key={x.Driver} style={{ "--tc": tc(x.Team) }}>
             <span className="p">P{i + 1}</span>
             <span className="n">{NAMES[x.Driver] || x.Driver}</span>
-            <span className="t">{x.Team} · from P{x.GridPosition} · {i ? `+${(x.lap - win.lap).toFixed(3)}s/lap` : `${fmtLap(x.lap)}/lap`}</span>
+            <span className="t">{x.Team} · from P{x.GridPosition} · {Number.isFinite(x.win) ? `Win ${x.win.toFixed(0)}% · Podium ${x.podium.toFixed(0)}%` : i ? `+${(x.lap - win.lap).toFixed(3)}s/lap` : `${fmtLap(x.lap)}/lap`}</span>
           </div>
         ))}
       </div>
@@ -173,7 +175,7 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
       <p className="picks">
         <span className="muted">Model picks to win:</span>
         {Object.entries(MODELS).map(([k, label]) => (
-          <span key={k} className={inputs.model === k ? "on" : ""}>{label} <b>{surname(SC.picks[k])}</b></span>
+          <span key={k} className={inputs.model === k ? "on" : ""}>{label} <b>{SC.picks[k] ? surname(SC.picks[k]) : "n/a"}</b></span>
         ))}
       </p>
 

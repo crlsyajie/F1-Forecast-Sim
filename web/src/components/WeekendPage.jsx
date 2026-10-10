@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { D, MODELS, byRound, scenario } from "../lib/model";
+import { D, MODELS, P, byRound, predictorGap, scenario } from "../lib/model";
 import { NAMES, tc } from "../lib/constants";
 import { ModelSwitch } from "./SimulatorPage";
 
@@ -23,6 +23,43 @@ function Schedule() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function PredictorQualifying() {
+  const rows = P.qualifying_prediction;
+  const bt = P.backtest || {};
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  return (
+    <div className="panel">
+      <div className="row between">
+        <h2>Qualifying prediction</h2>
+        <span className="muted" style={{ fontSize: ".8rem" }}>Formula 1 GP Predictor (main model) · generated {P.generated_utc}</span>
+      </div>
+      <div className="stats q-stats">
+        <div className="stat"><span className="v num">{pct(bt.winner_picked)}</span><span className="k">Race winners picked ({bt.races}-race backtest)</span></div>
+        <div className="stat"><span className="v num">{pct(bt.pole_sitter_won)}</span><span className="k">Pole sitter went on to win</span></div>
+        <div className="stat"><span className="v num">{bt.podium_hits?.toFixed(1)}/3</span><span className="k">Podium drivers right per race</span></div>
+        <div className="stat"><span className="v num">{P.training_races}</span><span className="k">Races in training data</span></div>
+      </div>
+      <div className="scroll">
+        <table className="t">
+          <thead><tr><th>Pos</th><th>Driver</th><th className="hide-sm">Team</th><th className="r">Predicted lap</th><th className="r">Gap</th></tr></thead>
+          <tbody>
+            {rows.map((x) => (
+              <tr key={x.Driver}>
+                <td className="num"><b>{x.PredictedPosition}</b></td>
+                <td><i className="sw" style={{ "--tc": tc(x.Team) }} /> <b>{x.Driver}</b> <span className="muted hide-sm">{NAMES[x.Driver] || ""}</span></td>
+                <td className="muted hide-sm">{x.Team}</td>
+                <td className="r num">{fmtTime(x["PredictedQ (s)"])}</td>
+                <td className="r num">{fmtGap(x["Gap (s)"])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted" style={{ fontSize: ".82rem" }}>From the Formula 1 GP Predictor notebook. Switch to a secondary model above to see this site's own practice-based qualifying model.</p>
     </div>
   );
 }
@@ -79,7 +116,7 @@ function Qualifying({ model }) {
 }
 
 function Sprint({ model, inputs, onWatch }) {
-  const SC = useMemo(() => scenario(D.sprint.round, inputs, model, "sprint"), [inputs, model]);
+  const SC = useMemo(() => scenario(D.sprint.round, inputs, model === "main" ? "avg" : model, "sprint"), [inputs, model]);
   const top = SC.rows.slice(0, 10);
   const actualTop3 = SC.rows.filter((x) => x.actual && x.actual <= 3).sort((a, b) => a.actual - b.actual).map((x) => x.Driver);
   const hits = SC.rows.slice(0, 3).filter((x) => actualTop3.includes(x.Driver)).length;
@@ -90,7 +127,7 @@ function Sprint({ model, inputs, onWatch }) {
         <button type="button" onClick={onWatch}>Watch sprint replay</button>
       </div>
       <p className="muted" style={{ fontSize: ".85rem" }}>
-        The race model ({MODELS[model]}) on the Sprint Qualifying grid over the {D.sprint.laps}-lap sprint. Winner called {SC.rows[0].Driver === actualTop3[0] ? "right" : "wrong"} · {hits}/3 podium drivers right.
+        {model === "main" ? "The Predictor predicts the Grand Prix only, so this uses the secondary Average model" : `The race model (${MODELS[model]})`} on the Sprint Qualifying grid over the {D.sprint.laps}-lap sprint. Winner called {SC.rows[0].Driver === actualTop3[0] ? "right" : "wrong"} · {hits}/3 podium drivers right.
       </p>
       <div className="scroll">
         <table className="t">
@@ -123,7 +160,9 @@ export default function WeekendPage({ inputs, model, setModel, onWatchSprint }) 
         <h1>{t.name.replace("Grand Prix", "GP")} weekend</h1>
         <Schedule />
       </div>
-      {D.quali && <Qualifying model={model} />}
+      {model === "main" && P?.qualifying_prediction && !predictorGap(D.nextRound)
+        ? <PredictorQualifying />
+        : D.quali && <Qualifying model={model === "main" ? "avg" : model} />}
       {D.sprint && <Sprint model={model} inputs={inputs} onWatch={onWatchSprint} />}
     </main>
   );

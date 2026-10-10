@@ -36,7 +36,20 @@ function predictRowRF(x) {
   return s / M.rf.trees.length;
 }
 
-export const MODELS = { avg: "Average", xgb: "XGBoost", rf: "Random Forest" };
+export const MODELS = { main: "Predictor", avg: "Average", xgb: "XGBoost", rf: "Random Forest" };
+export const SECONDARY = { avg: "Average", xgb: "XGBoost", rf: "Random Forest" };
+
+// Main model: the Formula 1 GP Predictor notebook's latest prediction (bundled at build time).
+export const P = D.predictor;
+const PRED_ROUND = P && P.event && P.event.year === 2026 ? P.event.round : null;
+// why the Predictor can't be used for this race, or null when it can
+export function predictorGap(round, session = "race") {
+  if (!P) return "The Predictor's prediction file was not found when this site was built.";
+  if (PRED_ROUND !== round) return `The Predictor only has a prediction for the ${P.event.name} (${P.event.year} round ${P.event.round}).`;
+  if (session !== "race") return "The Predictor predicts the Grand Prix only, not the sprint.";
+  return null;
+}
+
 
 // rows: [{Driver, Team, GridPosition, Q}] -> adds gap, pace, lap, pos; returns {rows, pole}
 export function predictField(rows, { rain, temp, wetOn, pole: poleOverride, model = "avg" }) {
@@ -73,7 +86,7 @@ export function predictField(rows, { rain, temp, wetOn, pole: poleOverride, mode
 export const defaultInputs = () => ({
   rain: Math.round(D.weather.rain * 100),
   temp: Math.round(D.weather.temp * 2) / 2,
-  model: "avg",
+  model: "main",
   grid: D.grid.map((g) => ({
     Driver: g.Driver, Team: team(g.Team), GridPosition: g.GridPosition,
     Q: g["QualifyingTime (s)"], CA: g["CleanAirRacePace (s)"],
@@ -82,7 +95,22 @@ export const defaultInputs = () => ({
 
 export const hasSprint = (round) => !!D.sprint && D.sprint.round === round;
 
-export function scenario(round, S, model = S?.model ?? "avg", session = "race") {
+export function scenario(round, S, model = S?.model ?? "main", session = "race") {
+  const gap = model === "main" ? predictorGap(round, session) : null;
+  const sec = model === "main" ? "avg" : model;   // secondary model used where the Predictor has no prediction
+  const SC = scenarioSecondary(round, S, sec, session);
+  SC.picks.main = predictorGap(round, session) ? null : P.race[0].Driver;
+  if (model !== "main") return { ...SC, source: model };
+  if (gap) return { ...SC, source: "avg", fallback: gap };
+  // use the Predictor's race order, grid and per-lap pace directly
+  const rows = P.race.map((r) => ({
+    Driver: r.Driver, Team: team(r.Team), GridPosition: r.GridPosition, lap: r["PredictedRaceTime (s)"],
+    pace: r["PredictedRacePace (%)"], win: r["Win %"], podium: r["Podium %"], pos: r.PredictedPosition,
+  })).sort((a, b) => a.pos - b.pos);
+  return { ...SC, rows, source: "main", rain: P.weather?.rain_probability ?? SC.rain, temp: P.weather?.temperature_c ?? SC.temp };
+}
+
+function scenarioSecondary(round, S, model, session) {
   const t = byRound[round], laps = D.laps[t.location] || 60;
   if (session === "sprint" && hasSprint(round)) {
     // sprint: Sprint Qualifying grid over sprint distance, compared with the real sprint result
