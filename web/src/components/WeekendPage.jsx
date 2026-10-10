@@ -79,17 +79,17 @@ function Qualifying({ model }) {
     <div className="panel">
       <div className="row between">
         <h2>Qualifying prediction</h2>
-        <span className="muted" style={{ fontSize: ".8rem" }}>From {Q.session} pace and recent qualifying form · {MODELS[model]}</span>
+        <span className="muted" style={{ fontSize: ".8rem" }}>Secondary model: {Q.session} pace + recent qualifying form</span>
       </div>
       <div className="stats q-stats">
-        <div className="stat"><span className="v num">{pct(m[model].pole)}</span><span className="k">Pole sitter called right (held-out races)</span></div>
+        <div className="stat"><span className="v num">{pct(m[model].pole)}</span><span className="k">Pole sitter called right (tested on {m.races} weekends)</span></div>
         <div className="stat"><span className="v num">{pct(m[model].top3)}</span><span className="k">Top-3 drivers called right</span></div>
         <div className="stat"><span className="v num">{m[model].mae.toFixed(3)}%</span><span className="k">Error on gap to pole</span></div>
-        <div className="stat"><span className="v num">{m.practiceOnly.mae.toFixed(3)}%</span><span className="k">Baseline: practice gap only ({pct(m.practiceOnly.pole)} poles)</span></div>
+        <div className="stat"><span className="v num">{m.practiceOnly.mae.toFixed(3)}%</span><span className="k">Baseline: last session's order only ({pct(m.practiceOnly.pole)} poles)</span></div>
       </div>
       <div className="scroll">
         <table className="t">
-          <thead><tr><th>Pos</th><th>Driver</th><th className="hide-sm">Team</th><th className="r">Predicted lap</th><th className="r">Gap</th><th style={{ width: "22%" }} className="hide-sm" /><th className="r">FP1 gap</th><th className="r hide-sm">Form</th>{hasActual && <th className="r">Actual</th>}</tr></thead>
+          <thead><tr><th>Pos</th><th>Driver</th><th className="hide-sm">Team</th><th className="r">Predicted lap</th><th className="r">Gap</th><th style={{ width: "22%" }} className="hide-sm" /><th className="r">FP gap</th><th className="r">SQ gap</th>{Q.sprintShown && <th className="r hide-sm">Sprint</th>}<th className="r hide-sm">Form</th>{hasActual && <th className="r">Actual</th>}</tr></thead>
           <tbody>
             {rows.map((x) => (
               <tr key={x.Driver}>
@@ -99,7 +99,9 @@ function Qualifying({ model }) {
                 <td className="r num">{fmtTime(x.time)}</td>
                 <td className="r num">{fmtGap(x.gapS)}</td>
                 <td className="hide-sm"><div className="qbar"><i style={{ width: `${100 - (x.gapS / maxGap) * 85}%`, background: tc(x.Team) }} /></div></td>
-                <td className="r num muted">+{x.fpGap.toFixed(2)}%</td>
+                <td className="r num muted">{x.fpGap == null ? "–" : "+" + x.fpGap.toFixed(2) + "%"}</td>
+                <td className="r num muted">{x.sqGap == null ? "–" : "+" + x.sqGap.toFixed(2) + "%"}</td>
+                {Q.sprintShown && <td className="r num muted hide-sm">{x.sprint ? "P" + x.sprint : "DNF"}</td>}
                 <td className="r num muted hide-sm">{x.form == null ? "–" : "+" + x.form.toFixed(2) + "%"}</td>
                 {hasActual && <td className={"r num " + (x.actual === x.pos ? "up" : "muted")}>{x.actual ? "P" + x.actual : "–"}</td>}
               </tr>
@@ -108,8 +110,9 @@ function Qualifying({ model }) {
         </table>
       </div>
       <p className="muted" style={{ fontSize: ".82rem" }}>
-        Trained on {m.trainRows} driver-sessions from {m.races - m.testRaces} race weekends, tested on {m.testRaces} weekends it never saw. Singapore is a sprint weekend, so FP1 is the only practice.
-        Predicted laps scale the FP1 best by the usual practice-to-pole ratio ({D.quali.ratio.toFixed(4)}). {hasActual ? "" : "The real result appears here after the next data refresh."}
+        Uses the last session before qualifying (Sprint Qualifying on sprint weekends, otherwise the best of FP1, FP2 and FP3) plus each driver's recent qualifying form, scored with cross-validation over {m.races} weekends ({m.sprintRaces} sprint weekends).
+        The sprint result is shown for reference but not used: adding it made pole and top-3 picks worse on past sprint weekends. Singapore is a sprint weekend, so FP1 is its only practice.
+        Predicted laps scale the Sprint Qualifying best by the usual ratio ({D.quali.ratio.toFixed(4)}). {hasActual ? "" : "The real result appears here after the next data refresh."}
       </p>
     </div>
   );
