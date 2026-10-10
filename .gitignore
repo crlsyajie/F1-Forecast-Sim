@@ -1,0 +1,9 @@
+# secrets and local-only files
+owm_key
+data/owm.json
+venv/
+cache/
+cache_tracks/
+__pycache__/
+site.html
+.DS_Store

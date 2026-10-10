@@ -1,0 +1,986 @@
+<title>Formula 1 Forecast Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a framed slab of race-track asphalt laid over a deep red backdrop. Flat, square, painted-on details:
+   grid-box brackets, outline chevrons, huge grey numerals with team-colour bars. Accent follows the predicted winner's team. */
+:root {
+  --backdrop: #120305;
+  --asphalt: #252526;
+  --asphalt-2: #2d2d2f;
+  --panel: rgba(18, 18, 19, .55);
+  --line: rgba(255, 255, 255, .10);
+  --line-2: rgba(255, 255, 255, .22);
+  --ink: #f1f1f1;
+  --muted: #9a9a9e;
+  --ghost: #4d4d50;            /* the giant grey numerals */
+  --paint: #b8912f;            /* grid-box yellow paint */
+  --red: #e10600;              /* Formula 1 red: the site's single accent */
+  --red-hi: #ff2a1a;
+  --team: var(--red);
+  --up: #46d98a; --down: #ff7a6b;
+  --gold: #f6c94f; --silver: #d5d5d8; --bronze: #e0915f;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .11 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --speck: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='turbulence' baseFrequency='.55' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.4 .9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--backdrop); color: var(--ink); }
+body {
+  font: 15px/1.55 var(--body); -webkit-font-smoothing: antialiased; min-height: 100%;
+  background:
+    radial-gradient(70% 60% at 0% 100%, rgba(170, 14, 30, .55), transparent 70%),
+    radial-gradient(60% 50% at 100% 0%, rgba(120, 10, 24, .5), transparent 70%),
+    radial-gradient(50% 40% at 70% 100%, rgba(90, 8, 18, .6), transparent 70%),
+    var(--backdrop);
+  background-attachment: fixed;
+  padding-inline: clamp(0px, 3vw, 44px); padding-block: clamp(0px, 3vw, 36px);
+}
+.frame {
+  max-width: 1440px; margin: 0 auto; position: relative; min-height: calc(100vh - 72px);
+  background: var(--grain), var(--speck), radial-gradient(90% 70% at 50% 40%, var(--asphalt-2), var(--asphalt) 70%);
+  box-shadow: 0 40px 120px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .04);
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 700; margin: 0; line-height: 1.02; text-wrap: balance; text-transform: uppercase; letter-spacing: -.01em; }
+h1 { font-size: clamp(1.7rem, 4vw, 3rem); font-weight: 800; }
+h2 { font-size: 1.05rem; display: flex; align-items: center; gap: 12px; }
+h3 { font-size: .85rem; display: flex; align-items: center; gap: 10px; letter-spacing: .02em; }
+h2::before, h3::before { content: ""; flex: none; width: 13px; height: 1.05em; background: linear-gradient(90deg, var(--team) 0 32%, transparent 32% 68%, var(--team) 68%); }
+p { margin: 0; max-width: 70ch; }
+.muted { color: var(--muted); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 600 .72rem/1 var(--body); text-transform: uppercase; letter-spacing: .22em; color: var(--red-hi); }
+
+button, select {
+  font: 600 .76rem var(--body); text-transform: uppercase; letter-spacing: .12em; color: var(--ink);
+  background: transparent; border: 1px solid var(--line-2); padding: 9px 14px; cursor: pointer; border-radius: 0;
+  transition: background .2s, border-color .2s, color .2s;
+}
+select { padding-right: 30px; appearance: none; background-color: rgba(0,0,0,.25); background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%; background-size: 5px 5px; background-repeat: no-repeat; letter-spacing: .06em; }
+select option { background: #1a1a1b; }
+button:hover, select:hover { border-color: var(--ink); }
+button[aria-pressed="true"] { background: var(--red); border-color: var(--red); color: #fff; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--team); outline-offset: 2px; }
+input[type=range] { width: 100%; accent-color: var(--team); }
+
+/* Nav */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: linear-gradient(180deg, rgba(30,30,31,.96), rgba(30,30,31,.82)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.nav-in { max-width: 1440px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 56px); padding-block: 16px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px 24px; }
+.brand { justify-self: start; text-decoration: none; display: inline-flex; align-items: center; gap: 9px; border: 2.5px solid var(--red); padding: 5px 12px 5px 10px; transform: skewX(-12deg); transition: background .2s, box-shadow .2s; }
+.brand:hover { background: rgba(225, 6, 0, .1); box-shadow: 0 0 22px -6px rgba(225, 6, 0, .7); }
+.brand .speed { width: 18px; height: 14px; flex: none; background: linear-gradient(var(--red) 0 2.5px, transparent 2.5px 5.75px, var(--red) 5.75px 8.25px, transparent 8.25px 11.5px, var(--red) 11.5px 14px); -webkit-mask: linear-gradient(90deg, transparent, #000 70%); mask: linear-gradient(90deg, transparent, #000 70%); }
+.brand b { font: 800 1.35rem/1 var(--display); color: var(--red); letter-spacing: .03em; }
+.brand span { font: 800 .5rem/1.15 var(--body); color: var(--red); letter-spacing: .18em; text-transform: uppercase; padding-left: 9px; border-left: 1.5px solid var(--red); }
+.tabs { display: flex; gap: clamp(14px, 3vw, 40px); flex-wrap: wrap; justify-content: center; }
+.tabs a { color: #d9d9db; text-decoration: none; font: 500 .8rem var(--body); text-transform: uppercase; letter-spacing: .14em; padding: 6px 0; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; }
+.tabs a:hover { color: #fff; }
+.tabs a[aria-current="page"] { color: #fff; border-bottom-color: var(--team); }
+.icons { justify-self: end; display: flex; gap: 10px; }
+.icons a { width: 34px; height: 34px; display: grid; place-items: center; border: 1.5px solid #d9d9db; color: #d9d9db; transition: border-color .2s, color .2s, background .2s; }
+.icons a:hover, .icons a[aria-current="page"] { border-color: var(--team); color: var(--team); }
+.icons svg { width: 16px; height: 16px; }
+
+.page { max-width: 1440px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 56px); padding-block: 30px 64px; display: grid; gap: 26px; }
+.page[hidden] { display: none; }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.between { justify-content: space-between; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 700 .64rem var(--body); text-transform: uppercase; letter-spacing: .16em; padding: 5px 9px; color: var(--muted); border: 1px solid var(--line-2); }
+.chip.live { color: #fff; background: var(--red); border-color: var(--red); }
+.chip.done { color: var(--ink); }
+.sw { width: 4px; height: 14px; background: var(--tc); flex: none; display: inline-block; }
+.note { border-left: 4px solid var(--team); background: rgba(0, 0, 0, .28); padding: 10px 14px; font-size: .88rem; max-width: none; }
+
+/* Simulator */
+.sim-head { display: grid; gap: 12px; }
+.sim-meta { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .14em; }
+.sim-meta b { color: var(--ink); font-weight: 700; }
+.sim { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.stage { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); background: radial-gradient(70% 60% at 50% 50%, rgba(255,255,255,.035), transparent 70%); }
+.stage canvas { position: relative; z-index: 1; display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; max-width: 100%; }
+.bigno { position: absolute; right: 18px; top: 10px; z-index: 0; display: flex; align-items: center; gap: 14px; pointer-events: none; }
+.bigno b { font: 800 clamp(3.4rem, 9vw, 7.5rem)/1 var(--display); color: var(--ghost); letter-spacing: -.04em; }
+.bars { display: inline-flex; gap: 6px; height: clamp(46px, 7vw, 92px); }
+.bars i { width: clamp(6px, .9vw, 11px); background: var(--team); }
+.bigteam { position: absolute; left: 250px; bottom: 74px; z-index: 0; display: flex; align-items: center; gap: 22px; pointer-events: none; max-width: calc(100% - 36px); }
+.bigteam .bars { height: clamp(30px, 4.4vw, 54px); }
+.bigteam b { font: 800 clamp(1.8rem, 5vw, 4rem)/1 var(--display); color: var(--ghost); text-transform: uppercase; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.brk { position: absolute; z-index: 0; width: 34px; height: 34px; border: 3px solid rgba(255,255,255,.18); pointer-events: none; }
+.brk.tl { left: 26%; top: 14%; border-right: 0; border-bottom: 0; } .brk.tr { right: 12%; top: 16%; border-left: 0; border-bottom: 0; }
+.brk.bl { left: 26%; bottom: 22%; border-right: 0; border-top: 0; } .brk.br { right: 12%; bottom: 24%; border-left: 0; border-top: 0; }
+.chev { position: absolute; top: 42%; z-index: 2; width: clamp(40px, 6vw, 84px); height: clamp(70px, 11vw, 150px); border: 0; padding: 0; background: transparent; opacity: .55; transition: opacity .2s, transform .2s; }
+.chev:hover { opacity: 1; border: 0; }
+.chev.prev { left: 232px; } .chev.next { right: 6px; }
+.chev.prev:hover { transform: translateX(-3px); } .chev.next:hover { transform: translateX(3px); }
+.chev svg { width: 100%; height: 100%; fill: none; stroke: #d9d9db; stroke-width: 2; }
+.hud { position: absolute; left: 18px; top: 16px; z-index: 2; display: grid; gap: 4px; pointer-events: none; }
+.hud .lap { font: 800 1.7rem/1 var(--display); }
+.hud .lap small { font-size: .9rem; color: var(--muted); font-weight: 600; }
+.hud .clock { font: 500 .78rem var(--mono); color: var(--muted); }
+.flag { position: absolute; right: 18px; bottom: 74px; z-index: 2; }
+.controls { position: relative; z-index: 2; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 14px; border-top: 1px solid var(--line); background: rgba(14, 14, 15, .7); }
+.controls .sp { display: flex; }
+.controls .sp button { padding: 8px 10px; font: 600 .74rem var(--mono); letter-spacing: 0; margin-left: -1px; }
+.scrub { flex: 1 1 160px; min-width: 120px; }
+#play { min-width: 90px; background: var(--ink); color: #0b0b0b; border-color: var(--ink); }
+#play[aria-pressed="true"] { background: transparent; color: var(--ink); border-color: var(--line-2); }
+
+.tower { padding: 0; gap: 0; background: rgba(14, 14, 15, .6); }
+.tower h3 { padding: 14px 16px; border-bottom: 1px solid var(--line); justify-content: space-between; }
+.tower h3 > span:first-child { display: flex; align-items: center; gap: 10px; }
+.tower h3::before { display: none; }
+.tw { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.tw td { padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,.05); white-space: nowrap; }
+.tw tr:hover td { background: rgba(255,255,255,.04); }
+.tw .p { font: 800 .9rem var(--display); width: 2.5em; color: var(--muted); }
+.tw tr:nth-child(1) .p { color: var(--gold); } .tw tr:nth-child(2) .p { color: var(--silver); } .tw tr:nth-child(3) .p { color: var(--bronze); }
+.tw .d { font-weight: 800; letter-spacing: .08em; }
+.tw .g { text-align: right; font-family: var(--mono); color: var(--muted); font-size: .8rem; }
+.tw .a { text-align: right; font-family: var(--mono); font-size: .76rem; }
+.tw .bar { width: 5px; padding: 0; background: var(--tc); }
+
+/* Broadcast timing tower (TV-graphic style, overlaid on the race map) */
+.bcast { position: absolute; z-index: 3; left: 14px; top: 14px; width: 212px; background: rgba(16, 16, 18, .86); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-radius: 10px; overflow: hidden; box-shadow: 0 16px 40px -14px rgba(0,0,0,.9); border: 1px solid rgba(255,255,255,.07); }
+.bt-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px 6px; }
+.bt-mark { font: 800 .82rem/1 var(--display); color: var(--red); font-style: italic; letter-spacing: .02em; padding: 2px 5px; border: 1.5px solid var(--red); transform: skewX(-12deg); }
+.bt-title { font: 800 1.02rem/1 var(--display); color: #fff; text-transform: uppercase; letter-spacing: .02em; }
+.bt-sub { display: flex; justify-content: space-between; align-items: center; padding: 0 10px 7px 12px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.bt-lap { font: 700 .74rem var(--body); color: #e6e6e8; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.bt-mode { display: flex; }
+.bt-mode button { padding: 2px 6px; font-size: .52rem; letter-spacing: .1em; border-color: rgba(255,255,255,.35); color: #ddd; margin-left: -1px; }
+.bt-mode button[aria-pressed="true"] { background: #fff; color: #111; border-color: #fff; }
+.bt-rows { position: relative; }
+.bt-row { position: absolute; left: 0; right: 0; top: 0; height: 24px; display: grid; grid-template-columns: 24px 18px minmax(0, 1fr) auto 18px; align-items: center; gap: 0; padding-right: 6px; transition: transform .5s cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+.bt-pos { text-align: center; font: 700 .7rem var(--body); color: #f2f2f2; font-variant-numeric: tabular-nums; }
+.bt-slit { width: 11px; height: 12px; justify-self: center; background: var(--tc); transform: skewX(-18deg); border-radius: 1px; }
+.bt-drv { padding-left: 7px; font: 800 .74rem var(--body); letter-spacing: .06em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+.bt-gap { font: 500 .66rem var(--mono); text-align: right; color: #bdbdc2; white-space: nowrap; padding-left: 4px; }
+.bt-last { display: none; }
+.bt-chg { font: 700 .58rem var(--mono); text-align: center; }
+.bt-chg.fast { width: 15px; height: 15px; justify-self: center; border-radius: 4px; background: #8f3ad6; display: grid; place-items: center; }
+.bt-chg.fast::before { content: ""; width: 7px; height: 7px; border: 1.5px solid #fff; border-radius: 50%; }
+.bt-row.gain { animation: gain 1.2s ease-out; } .bt-row.loss { animation: loss 1.2s ease-out; }
+@keyframes gain { from { background: rgba(70, 217, 138, .4); } to { background: transparent; } }
+@keyframes loss { from { background: rgba(225, 6, 0, .38); } to { background: transparent; } }
+.bt-row.fin .bt-pos { color: #fff; text-decoration: underline 2px; text-underline-offset: 3px; }
+.bt-foot { display: flex; align-items: center; gap: 8px; padding: 7px 12px 9px; font: 600 .66rem var(--mono); color: #e3ccff; border-top: 1px solid rgba(255,255,255,.1); white-space: nowrap; }
+.sw-ic { width: 14px; height: 14px; flex: none; border-radius: 4px; background: #8f3ad6; position: relative; }
+.sw-ic::before { content: ""; position: absolute; inset: 3.5px; border: 1.5px solid #fff; border-radius: 50%; }
+.clock-chip { position: absolute; z-index: 3; left: 240px; top: 16px; font: 600 .74rem var(--mono); color: #d6d6d8; background: rgba(16,16,18,.8); padding: 5px 9px; border-radius: 6px; }
+.ticker { position: absolute; left: calc(50% + 113px); top: 16px; transform: translateX(-50%); z-index: 3; display: grid; gap: 6px; justify-items: center; pointer-events: none; width: max-content; max-width: 60%; }
+.tk { display: flex; align-items: center; gap: 10px; background: rgba(16,16,18,.92); border-left: 5px solid var(--tc, var(--red)); border-radius: 6px; padding: 8px 14px; font: 700 .74rem var(--body); text-transform: uppercase; letter-spacing: .1em; box-shadow: 0 10px 30px -10px #000; white-space: nowrap; animation: tkin .35s cubic-bezier(.2,.7,.2,1) both; }
+.tk b { font: 800 .84rem var(--body); letter-spacing: .06em; }
+.tk.purple { border-left-color: #a64dff; background: linear-gradient(90deg, #2a0f44, rgba(16,16,18,.92)); }
+.tk.flag { border-left-color: #fff; background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) left / 10px 10px no-repeat, rgba(16,16,18,.95); padding-left: 22px; }
+.tk.out { animation: tkout .35s ease-in forwards; }
+@keyframes tkin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes tkout { to { opacity: 0; transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .bt-row { transition: none; } .tk, .bt-row.gain, .bt-row.loss { animation: none; } }
+
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+.pod { position: relative; overflow: hidden; padding: 16px 20px; display: grid; grid-template-columns: auto 1fr; gap: 2px 16px; align-items: center; min-width: 0; background: rgba(14, 14, 15, .45); border-left: 1px solid var(--line); }
+.pod:first-child { border-left: 0; }
+.pod::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--tc); }
+.pod .p { font: 800 2.3rem/1 var(--display); grid-row: span 2; color: var(--ghost); letter-spacing: -.04em; }
+.pod:nth-child(1) .p { color: var(--gold); }
+.pod .n { font: 700 .98rem/1.2 var(--display); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod .t { font-size: .76rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+/* Tracks wall */
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.card { position: relative; overflow: hidden; background: transparent; border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 20px 16px 18px; display: grid; gap: 8px; text-align: left; cursor: pointer; color: var(--ink); font: inherit; text-transform: none; letter-spacing: 0; transition: background .25s; }
+.card:hover { background: rgba(255,255,255,.035); border-color: var(--line); }
+.card .rno { position: absolute; right: 12px; top: 6px; font: 800 2.6rem/1 var(--display); color: rgba(255,255,255,.07); letter-spacing: -.04em; pointer-events: none; }
+.card svg { width: 100%; height: auto; aspect-ratio: 4 / 3; overflow: visible; }
+.card path { fill: none; stroke: var(--paint); stroke-width: 20; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 8px rgba(184, 145, 47, .35)); transition: stroke .25s; }
+.card:hover path { stroke: #f0c14e; }
+.card .nm { font: 700 .95rem/1.1 var(--display); text-transform: uppercase; }
+.card .dt { font: 600 .7rem var(--body); color: var(--muted); text-transform: uppercase; letter-spacing: .14em; }
+.card .row { justify-content: flex-start; }
+
+/* Inputs */
+.cols { display: grid; grid-template-columns: minmax(0, 390px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.field { display: grid; gap: 8px; }
+.lab { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .16em; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.lab output { font-family: var(--mono); color: var(--ink); letter-spacing: 0; font-weight: 500; }
+.boost { display: grid; grid-template-columns: 122px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: .84rem; padding: 3px 0; }
+.boost span:first-child { display: flex; gap: 9px; align-items: center; white-space: nowrap; overflow: hidden; }
+.boost output { font-family: var(--mono); text-align: right; font-size: .8rem; }
+.fc { display: flex; gap: 0; overflow-x: auto; border: 1px solid var(--line); }
+.fc div { flex: 1 0 54px; text-align: center; padding: 7px 2px; font-size: .7rem; border-left: 1px solid var(--line); color: var(--muted); }
+.fc div:first-child { border-left: 0; }
+.fc div.race { background: var(--red); color: #fff; }
+.fc div.race b { color: #fff; }
+.fc b { display: block; font: 500 .8rem var(--mono); color: var(--ink); }
+.scroll { overflow-x: auto; }
+table.t { width: 100%; border-collapse: collapse; font-size: .86rem; }
+table.t th { font: 700 .64rem var(--body); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+table.t td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.06); white-space: nowrap; }
+table.t tbody tr:hover { background: rgba(255,255,255,.035); }
+table.t .r { text-align: right; }
+table.t input { width: 5.8em; font: 500 .84rem var(--mono); padding: 5px 8px; border: 1px solid var(--line-2); background: rgba(0,0,0,.3); color: var(--ink); border-radius: 0; }
+table.t input.gp { width: 3.8em; }
+table.t button { padding: 6px 10px; font-size: .66rem; }
+.up { color: var(--up); } .down { color: var(--down); }
+
+/* Model */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 22px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); }
+.stat { padding: 16px; display: grid; gap: 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.stat:nth-child(2n) { border-right: 0; } .stat:nth-child(n+3) { border-bottom: 0; }
+.stat .v { font: 800 1.6rem/1.1 var(--display); letter-spacing: -.02em; }
+.stat:first-child .v { color: var(--red-hi); }
+.stat .k { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+svg text { fill: var(--muted); font: 11px var(--mono); }
+svg .lbl { fill: var(--ink); font: 600 11.5px var(--body); }
+svg .gridl { stroke: var(--line); }
+ol.notes { margin: 0; padding-left: 1.4em; display: grid; gap: 10px; font-size: .9rem; color: #cfcfd2; }
+ol.notes li { max-width: 82ch; }
+ol.notes li::marker { color: var(--team); font-family: var(--display); font-weight: 700; font-size: .8em; }
+footer { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .14em; text-align: center; padding-top: 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .page:not([hidden]) { animation: rise .4s cubic-bezier(.2, .7, .2, 1) both; }
+  @keyframes rise { from { opacity: .001; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+}
+@media (max-width: 980px) { .sim, .cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .nav-in { grid-template-columns: 1fr auto; } .tabs { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; }
+  /* Broadcast timing tower */
+.bcast { background: rgba(10, 10, 11, .9); min-width: 0; box-shadow: 0 20px 50px -20px rgba(0,0,0,.8); position: sticky; top: 90px; }
+.bt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; background: linear-gradient(90deg, var(--red), #9e0400); }
+.bt-lap { font: 800 1rem/1 var(--display); color: #fff; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.bt-mode { display: flex; }
+.bt-mode button { padding: 4px 8px; font-size: .58rem; letter-spacing: .12em; border-color: rgba(255,255,255,.55); color: #fff; margin-left: -1px; }
+.bt-mode button[aria-pressed="true"] { background: #fff; color: #111; border-color: #fff; }
+.bt-cols, .bt-row { display: grid; grid-template-columns: 30px 5px minmax(0, 1fr) 68px 74px 34px; align-items: center; }
+.bt-cols { padding: 6px 0 5px; font: 700 .56rem var(--body); text-transform: uppercase; letter-spacing: .14em; color: var(--muted); border-bottom: 1px solid var(--line); }
+.bt-cols span:first-child { text-align: center; } .bt-cols span:nth-child(n+4) { text-align: right; padding-right: 8px; } .bt-cols span:last-child { text-align: center; padding: 0; }
+.bt-rows { position: relative; }
+.bt-row { position: absolute; left: 0; right: 0; top: 0; height: 29px; border-bottom: 1px solid rgba(255,255,255,.05); background: rgba(255,255,255,.02); transition: transform .5s cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+.bt-pos { height: 100%; display: grid; place-items: center; background: #ececec; color: #111; font: 800 .74rem var(--display); }
+.bt-slit { height: 64%; background: var(--tc); }
+.bt-drv { padding-left: 10px; font: 800 .86rem var(--body); letter-spacing: .09em; white-space: nowrap; overflow: hidden; }
+.bt-gap, .bt-last { font: 500 .74rem var(--mono); text-align: right; padding-right: 8px; color: #d6d6d8; white-space: nowrap; }
+.bt-last.purple { color: #c46bff; font-weight: 600; }
+.bt-chg { font: 700 .68rem var(--mono); text-align: center; }
+.bt-row.gain { animation: gain 1.2s ease-out; } .bt-row.loss { animation: loss 1.2s ease-out; }
+@keyframes gain { from { background: rgba(70, 217, 138, .38); } to { background: rgba(255,255,255,.02); } }
+@keyframes loss { from { background: rgba(225, 6, 0, .35); } to { background: rgba(255,255,255,.02); } }
+.bt-row.fin .bt-pos { background: #fff; box-shadow: inset 0 -3px 0 #111; }
+.bt-foot { display: flex; justify-content: space-between; gap: 8px; padding: 9px 10px; font: 600 .74rem var(--mono); color: #e8d6ff; border-top: 1px solid var(--line); background: linear-gradient(90deg, rgba(150, 60, 220, .28), transparent); }
+.bt-foot .fl { font: 800 .6rem var(--body); text-transform: uppercase; letter-spacing: .16em; color: #c46bff; }
+.ticker { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 3; display: grid; gap: 6px; justify-items: center; pointer-events: none; width: max-content; max-width: 70%; }
+.tk { display: flex; align-items: center; gap: 10px; background: #0c0c0d; border-left: 5px solid var(--tc, var(--red)); padding: 8px 14px; font: 700 .76rem var(--body); text-transform: uppercase; letter-spacing: .1em; box-shadow: 0 10px 30px -10px #000; white-space: nowrap; animation: tkin .35s cubic-bezier(.2,.7,.2,1) both; }
+.tk b { font: 800 .9rem var(--display); letter-spacing: 0; }
+.tk.purple { border-left-color: #a64dff; background: linear-gradient(90deg, #2a0f44, #0c0c0d); }
+.tk.flag { border-left-color: #fff; background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) left / 10px 10px no-repeat, #0c0c0d; padding-left: 22px; }
+.tk.out { animation: tkout .35s ease-in forwards; }
+@keyframes tkin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes tkout { to { opacity: 0; transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .bt-row { transition: none; } .tk, .bt-row.gain, .bt-row.loss { animation: none; } }
+
+.podium { grid-template-columns: minmax(0, 1fr); } .pod { border-left: 0; border-top: 1px solid var(--line); } .pod:first-child { border-top: 0; }
+  .hide-sm { display: none; } .bigteam { bottom: 64px; } .brk { display: none; }
+  .bcast { position: relative; left: auto; top: auto; width: auto; border-radius: 0; margin: 0; }
+  .clock-chip { left: 12px; top: 12px; } .ticker { left: 50%; max-width: 92%; } .chev.prev { left: 6px; } .bigteam { left: 18px; }
+  .flag { bottom: 12px; right: 12px; } .bigteam, .bigno { display: none; }
+}
+</style>
+
+<div class="frame">
+<nav class="nav" aria-label="Sections">
+  <div class="nav-in">
+    <a class="brand" href="#sim" aria-label="CYF Formula 1 Forecast Simulator, home"><i class="speed" aria-hidden="true"></i><b>CYF</b><span>F1<br>Forecast</span></a>
+    <div class="tabs">
+      <a href="#sim" data-route="sim">Simulator</a>
+      <a href="#tracks" data-route="tracks">Tracks</a>
+      <a href="#inputs" data-route="inputs">Inputs</a>
+      <a href="#model" data-route="model">Model</a>
+    </div>
+    <div class="icons"><a href="#inputs" data-route="inputs" aria-label="Race inputs" title="Race inputs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></a><a href="#model" data-route="model" aria-label="Model accuracy" title="Model accuracy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a></div>
+  </div>
+</nav>
+
+<!-- SIMULATOR -->
+<main class="page" id="page-sim">
+  <div class="sim-head">
+    <div class="row between">
+      <span class="eyebrow" id="simEyebrow"></span>
+      <label class="row" for="raceSel"><span class="muted" style="font-size:.82rem">Race</span><select id="raceSel"></select></label>
+    </div>
+    <h1 id="simTitle"></h1>
+    <div class="sim-meta" id="simMeta"></div>
+    <p class="note" id="simNote"></p>
+  </div>
+
+  <div class="podium" id="podium" aria-label="Predicted podium"></div>
+
+  <div class="sim">
+    <div class="stage">
+      <div class="bigno" aria-hidden="true"><b id="bigNo"></b><span class="bars"><i></i><i></i><i></i></span></div>
+      <div class="bigteam" aria-hidden="true"><span class="bars"><i></i><i></i></span><b id="bigTeam"></b></div>
+      <i class="brk tl"></i><i class="brk tr"></i><i class="brk bl"></i><i class="brk br"></i>
+      <canvas id="track" width="1200" height="900" aria-label="Race simulation on the track map"></canvas>
+      <button class="chev prev" id="prevRace" type="button" aria-label="Previous race"><svg viewBox="0 0 80 140" aria-hidden="true"><path d="M44 4 L8 70 L44 136 M76 4 L40 70 L76 136"/></svg></button>
+      <button class="chev next" id="nextRace" type="button" aria-label="Next race"><svg viewBox="0 0 80 140" aria-hidden="true"><path d="M36 4 L72 70 L36 136 M4 4 L40 70 L4 136"/></svg></button>
+      <div class="hud" hidden><span class="lap" id="hudLap"></span></div><span class="clock-chip" id="hudClock"></span>
+      <span class="flag chip" id="hudFlag"></span>
+      <div class="ticker" id="ticker" aria-live="polite"></div>
+      <div class="bcast" aria-label="Live timing tower">
+        <div class="bt-head"><span class="bt-mark">CYF</span><span class="bt-title">Race</span></div>
+        <div class="bt-sub"><span class="bt-lap" id="btLap">LAP 1/62</span>
+          <div class="bt-mode" role="group" aria-label="Gap mode"><button type="button" data-m="int" aria-pressed="true">Int</button><button type="button" data-m="lead" aria-pressed="false">Leader</button></div></div>
+        <div class="bt-rows" id="tower"></div>
+        <div class="bt-foot" id="btFoot"><span class="sw-ic" aria-hidden="true"></span><span id="btFast">–</span></div>
+      </div>
+      <div class="controls">
+        <button id="play" type="button" aria-pressed="false">Play</button>
+        <button id="restart" type="button">Restart</button>
+        <div class="sp" role="group" aria-label="Playback speed" id="speeds"></div>
+        <input class="scrub" type="range" id="scrub" min="0" max="1000" value="0" aria-label="Race progress">
+        <button id="finish" type="button">Finish</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- TRACKS -->
+<main class="page" id="page-tracks" hidden>
+  <div class="sim-head">
+    <span class="eyebrow">2026 calendar</span>
+    <h1>Every circuit</h1>
+    <p class="muted">Outlines come from FastF1 position data of each circuit's fastest qualifying lap. Pick one to simulate it.</p>
+  </div>
+  <div class="wall" id="wall"></div>
+</main>
+
+<!-- INPUTS -->
+<main class="page" id="page-inputs" hidden>
+  <div class="sim-head">
+    <span class="eyebrow">Next race and upcoming rounds</span>
+    <h1>Race inputs</h1>
+    <p class="muted">These settings drive the prediction for the next race and the placeholder grids for later rounds. Completed rounds always use their real qualifying.</p>
+  </div>
+  <div class="cols">
+    <div class="panel">
+      <div class="row between"><h2>Conditions</h2><button id="resetAll" type="button">Reset all</button></div>
+      <div class="field">
+        <label class="lab" for="rain">Chance of rain <output id="rainOut"></output></label>
+        <input type="range" id="rain" min="0" max="100" step="1">
+        <div class="row"><span class="chip" id="wetChip"></span></div>
+      </div>
+      <div class="field">
+        <label class="lab" for="temp">Air temperature <output id="tempOut"></output></label>
+        <input type="range" id="temp" min="10" max="40" step="0.5">
+      </div>
+      <div class="field">
+        <span class="lab">OpenWeather forecast, race day (SGT) <span id="fcAt" style="text-transform:none;letter-spacing:0;font-weight:400"></span></span>
+        <div class="fc" id="forecast"></div>
+      </div>
+      <div class="field">
+        <span class="lab">Regulation-change boost <span style="text-transform:none;letter-spacing:0;font-weight:400">1.00 = neutral</span></span>
+        <div style="display:grid;gap:6px" id="boosts"></div>
+      </div>
+      <div class="field">
+        <label class="lab" for="strength">Boost weight <output id="strengthOut"></output></label>
+        <input type="range" id="strength" min="0" max="5" step="0.1">
+        <p class="muted" style="font-size:.8rem">Lap-time change for a full 1.00 of boost. At 2.0%, a team at 1.15 gains 0.3% per lap; a team at 0.70 loses 0.6%. Set it to 0 to see the model alone.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row between"><h2>Qualifying grid</h2><button id="resetGrid" type="button">Reset grid</button></div>
+      <p class="note" id="gridNotice"></p>
+      <div class="scroll">
+        <table class="t" id="gridTbl"><thead><tr><th>Driver</th><th class="hide-sm">Team</th><th class="r">Grid</th><th class="r">Quali lap (s)</th><th class="r">Wet factor</th><th class="r hide-sm">FP1 long run (s)</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MODEL -->
+<main class="page" id="page-model" hidden>
+  <div class="sim-head">
+    <span class="eyebrow">XGBoost, from F1.ipynb</span>
+    <h1>How good is the model?</h1>
+  </div>
+  <div class="cards">
+    <div class="panel">
+      <h3>Accuracy on held-out races</h3>
+      <div class="stats" id="stats"></div>
+      <p class="muted" style="font-size:.85rem" id="testRaces"></p>
+    </div>
+    <div class="panel">
+      <h3>Feature importance (gain)</h3>
+      <svg id="imp" role="img" aria-label="Feature importance"></svg>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="row between"><h3>2026 so far: predicted vs actual</h3><span class="muted" style="font-size:.8rem">Model only, no boosts. Races marked "trained on" were part of the training data.</span></div>
+    <div class="scroll"><table class="t" id="backtest"><thead><tr><th>Rd</th><th>Race</th><th>Data</th><th>Predicted podium</th><th>Actual podium</th><th class="r">Winner right</th><th class="r">Podium hits</th><th></th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div class="panel">
+    <h3>How the forecast is made</h3>
+    <ol class="notes">
+      <li>Training data comes from FastF1: every race from <span id="nFirst"></span> to <span id="nLast"></span>, one row per driver. Inputs are that weekend's qualifying gap to pole, grid slot, the team's best qualifying gap, whether it rained, and air temperature. The target is the driver's median green-flag race lap, as % slower than the fastest driver (notebook cell 20).</li>
+      <li>XGBoost settings, monotone constraints, the ×10 scaling of qualifying gap and grid slot, and the race-grouped 80/20 split are copied from cells 22–26. The trained trees run in your browser, so every input change reruns the same model.</li>
+      <li>Predicted lap = wet-adjusted pole time × <span id="nFactor"></span> (median race-pace-to-pole ratio in the training races) × (1 + predicted %).</li>
+      <li>At 70% chance of rain or more, qualifying times are multiplied by each driver's wet factor before gaps are computed (cell 17).</li>
+      <li>In the notebook the regulation-change boost is calculated but never reaches the model. Here it is added after the model, scaled by the boost weight.</li>
+      <li>The simulator moves each car at its predicted lap time, with a slower first lap and a grid-slot head start. It has no pit stops, safety cars or tyre wear, so it shows pace, not strategy.</li>
+      <li>Upcoming rounds after the next race have no qualifying yet. They use the Inputs grid and the circuit's 2025 pole time as placeholders.</li>
+    </ol>
+  </div>
+  <footer>Unofficial fan project, not affiliated with Formula 1. Timing data via FastF1; weather via OpenWeather.</footer>
+</main>
+</div>
+
+<script type="application/json" id="data">/*DATA*/</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById("data").textContent);
+const M = D.model;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const f32 = Math.fround;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const NAMES = { RUS:"George Russell", ANT:"Kimi Antonelli", VER:"Max Verstappen", HAD:"Isack Hadjar", LEC:"Charles Leclerc", HAM:"Lewis Hamilton", NOR:"Lando Norris", PIA:"Oscar Piastri", ALB:"Alex Albon", SAI:"Carlos Sainz", ALO:"Fernando Alonso", STR:"Lance Stroll", BEA:"Oliver Bearman", OCO:"Esteban Ocon", LAW:"Liam Lawson", LIN:"Arvid Lindblad", HUL:"Nico Hülkenberg", BOR:"Gabriel Bortoleto", GAS:"Pierre Gasly", COL:"Franco Colapinto", PER:"Sergio Pérez", BOT:"Valtteri Bottas", TSU:"Yuki Tsunoda", DOO:"Jack Doohan" };
+const TEAM_ALIAS = { "Red Bull Racing":"Red Bull", "Haas F1 Team":"Haas", "Kick Sauber":"Audi", "Sauber":"Audi", "RB":"Racing Bulls", "Alpine F1 Team":"Alpine", "Cadillac F1 Team":"Cadillac" };
+const team = (t) => TEAM_ALIAS[t] || t;
+const TEAM_COLOR = { "Mercedes":"#27d3b8", "Ferrari":"#ff2a3d", "McLaren":"#ff8a1f", "Red Bull":"#4a7fe0", "Williams":"#52b9f0", "Aston Martin":"#2fae7f", "Haas":"#b8bec8", "Racing Bulls":"#7f9cff", "Audi":"#c0294f", "Alpine":"#ff8cc6", "Cadillac":"#cdb177" };
+const tc = (t) => TEAM_COLOR[team(t)] || "#9aa3b2";
+const WET_THRESHOLD = 0.70;
+
+/* ---------- model ---------- */
+function predictRow(x) {
+  let s = M.baseScore;
+  for (const t of M.trees) {
+    let n = t;
+    while (Array.isArray(n)) {
+      const v = x[n[0]];
+      n = Number.isFinite(v) ? (f32(v) < f32(n[1]) ? n[2] : n[3]) : (n[4] ? n[2] : n[3]);
+    }
+    s += n;
+  }
+  return s;
+}
+// rows: [{Driver, Team, GridPosition, Q}] -> adds gap, pace, lap; returns {rows, pole}
+function predictField(rows, { rain, temp, wetOn, boost, strength, pole: poleOverride }) {
+  const r = rows.map(g => ({ ...g, Team: team(g.Team) }));
+  for (const x of r) { const wf = M.wet[x.Driver] ?? 1; x.QT = Number.isFinite(x.Q) ? (wetOn ? x.Q * wf : x.Q) : NaN; }
+  const qpole = Math.min(...r.filter(x => Number.isFinite(x.QT)).map(x => x.QT));
+  const teamMin = {};
+  for (const x of r) { x.gap = Number.isFinite(x.QT) ? (x.QT - qpole) / qpole * 100 : NaN; if (Number.isFinite(x.gap)) teamMin[x.Team] = Math.min(teamMin[x.Team] ?? Infinity, x.gap); }
+  const pole = poleOverride ?? qpole;
+  for (const x of r) {
+    const raw = [x.gap, x.GridPosition, teamMin[x.Team] ?? NaN, rain, temp];
+    const v = raw.map((val, i) => Number.isFinite(val) ? val : M.imputerMedians[i]);
+    v[0] *= M.qualiScale; v[1] *= M.qualiScale;
+    x.model = predictRow(v);
+    x.pace = x.model + (boost ? (1 - (boost[x.Team] ?? 1)) * strength : 0);
+    x.lap = pole * M.qualiToRaceFactor * (1 + x.pace / 100);
+  }
+  r.sort((a, b) => a.lap - b.lap || a.GridPosition - b.GridPosition);
+  r.forEach((x, i) => x.pos = i + 1);
+  return { rows: r, pole };
+}
+
+/* ---------- inputs state ---------- */
+const defaults = () => ({
+  rain: Math.round(D.weather.rain * 100), temp: Math.round(D.weather.temp * 2) / 2, strength: 2.0, boost: { ...M.boost },
+  grid: D.grid.map(g => ({ Driver: g.Driver, Team: team(g.Team), GridPosition: g.GridPosition, Q: g["QualifyingTime (s)"], CA: g["CleanAirRacePace (s)"] })),
+});
+let S = defaults();
+const inputsOpts = () => ({ rain: S.rain / 100, temp: S.temp, wetOn: S.rain / 100 >= WET_THRESHOLD, boost: S.boost, strength: S.strength });
+
+/* ---------- races ---------- */
+const NEXT = D.nextRound;
+const tracks = D.tracks.filter(t => t.path);
+const byRound = Object.fromEntries(D.tracks.map(t => [t.round, t]));
+const short = (t) => D.shortNames[t.location] || t.location;
+const fmtDate = (iso) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const status = (t) => t.round < NEXT ? "done" : t.round === NEXT ? "next" : "upcoming";
+
+function scenario(round) {
+  const t = byRound[round], laps = D.laps[t.location] || 60;
+  let st = status(t);
+  if (st === "done" && !D.backtest[round]) st = "nodata";
+  if (st === "done") {
+    const b = D.backtest[round];
+    const res = predictField(b.rows.map(x => ({ Driver: x.Driver, Team: x.Team, GridPosition: x.GridPosition, Q: x.Q })),
+      { rain: b.rain, temp: b.temp, wetOn: false, boost: null, strength: 0, pole: b.pole });
+    const actual = Object.fromEntries(b.rows.map(x => [x.Driver, x.Finish]));
+    res.rows.forEach(x => x.actual = actual[x.Driver]);
+    return { t, laps, st, ...res, rain: b.rain, temp: b.temp, inTrain: !M.metrics.testRaceIds.includes(b.raceId), raceId: b.raceId };
+  }
+  const opts = inputsOpts();
+  const g = S.grid.map(x => ({ ...x }));
+  const res = predictField(g, { ...opts, pole: st === "next" ? undefined : t.poleTime });
+  return { t, laps, st, ...res, rain: opts.rain, temp: opts.temp };
+}
+
+/* ---------- simulator ---------- */
+const cv = $("#track"), ctx = cv.getContext("2d");
+let SC = null;           // current scenario
+let geo = null;          // track geometry
+let sim = { t: 0, playing: false, speed: 30, last: 0 };
+const LAP1 = 1.06, SLOT = 0.0022;   // first lap slower; head start per grid slot (fraction of a lap)
+
+function buildGeo(t) {
+  const P = t.path, n = P.length, cum = [0];
+  for (let i = 1; i <= n; i++) { const a = P[i - 1], b = P[i % n]; cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+  return { P, n, cum, len: cum[n], minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+function at(frac) {
+  const g = geo, d = ((frac % 1) + 1) % 1 * g.len;
+  let lo = 0, hi = g.n;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (g.cum[m] <= d) lo = m; else hi = m; }
+  const a = g.P[lo], b = g.P[(lo + 1) % g.n], seg = g.cum[lo + 1] - g.cum[lo] || 1, k = (d - g.cum[lo]) / seg;
+  return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+}
+// Each car gets its own lap-by-lap times: predicted pace plus small random variation that sums to zero,
+// so battles happen mid-race but each driver's total race time matches the model.
+const startOff = (x) => -(x.GridPosition - 1) * SLOT;
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hash = (str) => [...str].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261);
+function buildLaps(x, N, round) {
+  const r = rng(hash(x.Driver + ":" + round)), sd = x.lap * 0.0032;
+  const e = Array.from({ length: N + 1 }, (_, l) => l ? (r() + r() + r() - 1.5) / 0.5 * sd : 0);
+  const mean = e.slice(1).reduce((a, b) => a + b, 0) / N;
+  const T = [0];
+  for (let l = 1; l <= N; l++) T.push(T[l - 1] + x.lap * (l === 1 ? LAP1 : 1) + (e[l] - mean));
+  x.T = T;
+}
+const lapEnd = (x, l) => { const N = x.T.length - 1; return l <= N ? x.T[l] : x.T[N] + (l - N) * x.lap; };
+function dist(x, t) {
+  const T = x.T, N = T.length - 1; let l;
+  if (t >= T[N]) l = N + Math.floor((t - T[N]) / x.lap);
+  else { let lo = 0, hi = N; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (T[m] <= t) lo = m; else hi = m; } l = lo; }
+  const a = lapEnd(x, l), b = lapEnd(x, l + 1);
+  return startOff(x) + l + (t - a) / (b - a);
+}
+function timeTo(x, d) { const dd = Math.max(0, d - startOff(x)), l = Math.floor(dd), a = lapEnd(x, l), b = lapEnd(x, l + 1); return a + (dd - l) * (b - a); }
+
+function prepRace() {
+  for (const x of SC.rows) buildLaps(x, SC.laps + 2, SC.t.round);
+  const leader = SC.rows[0];
+  const tLead = timeTo(leader, SC.laps);
+  for (const x of SC.rows) {
+    const dAt = dist(x, tLead);
+    x.finLaps = x === leader ? SC.laps : Math.min(SC.laps, Math.ceil(dAt - 1e-9));
+    x.finT = timeTo(x, x.finLaps);
+    x.lapsDown = SC.laps - x.finLaps;
+  }
+  SC.end = Math.max(...SC.rows.map(x => x.finT));
+  SC.tLead = tLead;
+  // every completed lap (crossing the line), in time order, with a running fastest lap
+  const laps = [];
+  for (const x of SC.rows) {
+    x.cross = [];
+    for (let c = 1; c <= x.finLaps; c++) { const tc_ = timeTo(x, c); x.cross.push(tc_); laps.push({ t: tc_, d: x.Driver, c, lt: tc_ - (c === 1 ? 0 : timeTo(x, c - 1)) }); }
+  }
+  laps.sort((a, b) => a.t - b.t);
+  let best = null;
+  for (const L of laps) { if (L.c >= 2 && (!best || L.lt < best.lt)) best = L; L.best = best; }
+  SC.lapLog = laps;
+}
+function lastLapOf(x, t) {
+  let c = 0; while (c < x.cross.length && x.cross[c] <= t) c++;
+  if (!c) return null;
+  return { c, lt: x.cross[c - 1] - (c === 1 ? 0 : x.cross[c - 2]) };
+}
+function fastestAt(t) {
+  const L = SC.lapLog; let lo = -1, hi = L.length;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m].t <= t) lo = m; else hi = m; }
+  return lo >= 0 ? L[lo].best : null;
+}
+
+let INSET = 0;   // canvas px covered by the overlaid timing tower
+function measureInset() {
+  const b = document.querySelector(".bcast");
+  INSET = b && getComputedStyle(b).position === "absolute" ? (b.offsetLeft + b.offsetWidth) * (cv.width / (cv.getBoundingClientRect().width || 1)) : 0;
+}
+function project(p, W, H, pad) {
+  const g = geo, AW = W - INSET, sx = (AW - pad * 2) / (g.maxX - g.minX), sy = (H - pad * 2) / (g.maxY - g.minY), s = Math.min(sx, sy);
+  const ox = INSET + (AW - (g.maxX - g.minX) * s) / 2, oy = (H - (g.maxY - g.minY) * s) / 2;
+  return [ox + (p[0] - g.minX) * s, oy + (p[1] - g.minY) * s, s];
+}
+
+function sizeCanvas() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(320, Math.round(r.width * dpr)), h = Math.round(w * 0.5625);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+}
+
+function draw() {
+  if (!SC) return;
+  const W = cv.width, H = cv.height, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const k = Math.max(W / 1200, dpr * 0.62), tk = Math.max(W / 1200, dpr * 0.8), pad = 60 * Math.max(W / 1200, dpr * 0.5);
+  ctx.clearRect(0, 0, W, H);
+  // track
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath();
+  geo.P.forEach((p, i) => { const [x, y] = project(p, W, H, pad); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.closePath();
+  ctx.save(); ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 18 * k;
+  ctx.strokeStyle = "rgba(184,145,47,.55)"; ctx.lineWidth = 28 * k; ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = "#1b1b1c"; ctx.lineWidth = 22 * k; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,.08)"; ctx.lineWidth = 1.5 * k; ctx.setLineDash([10 * k, 14 * k]); ctx.stroke(); ctx.setLineDash([]);
+  // start/finish line
+  const [sx0, sy0] = project(at(0), W, H, pad), [sx1, sy1] = project(at(0.004), W, H, pad);
+  const ang = Math.atan2(sy1 - sy0, sx1 - sx0) + Math.PI / 2;
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4 * k; ctx.beginPath();
+  ctx.moveTo(sx0 - Math.cos(ang) * 16 * k, sy0 - Math.sin(ang) * 16 * k); ctx.lineTo(sx0 + Math.cos(ang) * 16 * k, sy0 + Math.sin(ang) * 16 * k); ctx.stroke();
+  // corners
+  ctx.fillStyle = "#8a8a8e"; ctx.font = `600 ${13 * tk}px "JetBrains Mono", monospace`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const ckey = `${W}x${H}x${Math.round(INSET)}`;
+  if (SC.cornerKey !== ckey) { SC.cornerPos = cornerLayout(W, H, pad, 30 * k); SC.cornerKey = ckey; }
+  for (const c of SC.cornerPos) ctx.fillText(c[2], c[0], c[1]);
+  // cars
+  const t = sim.t, order = currentOrder(t);
+  const cars = order.map((x, i) => { const d = Math.min(dist(x, Math.min(t, x.finT)), x.finLaps); return { x, i, p: project(at(d), W, H, pad) }; });
+  for (const c of [...cars].reverse()) {
+    const big = c.i < 3, r = (big ? 13 : 9) * k, [px, py] = c.p, col = tc(c.x.Team);
+    if (big) { ctx.fillStyle = col + "40"; ctx.beginPath(); ctx.arc(px, py, r * 1.9, 0, 7); ctx.fill(); }
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.55)"; ctx.lineWidth = 2 * k; ctx.stroke();
+    ctx.font = `${big ? 700 : 600} ${(big ? 17 : 12.5) * tk}px "Manrope", sans-serif`;
+    ctx.lineWidth = 4 * k; ctx.strokeStyle = "rgba(20,20,21,.9)"; ctx.strokeText(c.x.Driver, px, py - r - 10 * k);
+    ctx.fillStyle = "#f3f5f9"; ctx.fillText(c.x.Driver, px, py - r - 10 * k);
+  }
+}
+
+function cornerLayout(W, H, pad, off) {
+  // place corner numbers just off the track, on the side with more clear space
+  const out = [];
+  const pts = geo.P.map(p => project(p, W, H, pad));
+  for (const c of SC.t.corners) {
+    const [cx, cy] = project([c[0], c[1]], W, H, pad);
+    let bi = 0, bd = Infinity;
+    pts.forEach((p, i) => { const d = (p[0] - cx) ** 2 + (p[1] - cy) ** 2; if (d < bd) { bd = d; bi = i; } });
+    const a = pts[(bi + pts.length - 2) % pts.length], b = pts[(bi + 2) % pts.length];
+    let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    let best = null;
+    for (const sgn of [1, -1]) {
+      const qx = cx + sgn * nx * off, qy = cy + sgn * ny * off;
+      const clear = Math.min(...pts.map(p => (p[0] - qx) ** 2 + (p[1] - qy) ** 2));
+      if (!best || clear > best[2]) best = [qx, qy, clear];
+    }
+    out.push([best[0], best[1], c[2]]);
+  }
+  return out;
+}
+
+function currentOrder(t) {
+  const done = (x) => t >= x.finT;
+  return [...SC.rows].sort((a, b) => {
+    const fa = done(a), fb = done(b);
+    if (fa && fb) return a.finLaps !== b.finLaps ? b.finLaps - a.finLaps : a.finT - b.finT;
+    const da = fa ? a.finLaps + 1e-3 * (SC.end - a.finT) : dist(a, t), db = fb ? b.finLaps + 1e-3 * (SC.end - b.finT) : dist(b, t);
+    return db - da;
+  });
+}
+
+const clock = (s) => { s = Math.max(0, s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = Math.floor(s % 60); return `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`; };
+
+const ROW_H = 24;
+let gapMode = "int", towerEls = {}, prevOrder = null, prevT = 0, prevFast = null, chg = {}, tickQueue = [], tickBusy = false, lastLapSeen = 0;
+function buildTower() {
+  const box = $("#tower");
+  box.style.height = SC.rows.length * ROW_H + 4 + "px";
+  box.innerHTML = "";
+  towerEls = {};
+  for (const x of SC.rows) {
+    const el = document.createElement("div");
+    el.className = "bt-row";
+    el.innerHTML = `<span class="bt-pos"></span><span class="bt-slit" style="--tc:${tc(x.Team)}"></span><span class="bt-drv">${surname(x.Driver)}</span><span class="bt-gap"></span><span class="bt-last"></span><span class="bt-chg"></span>`;
+    box.appendChild(el);
+    towerEls[x.Driver] = { el, pos: el.children[0], gap: el.children[3], last: el.children[4], chg: el.children[5] };
+  }
+  prevOrder = null; chg = {}; prevFast = null; lastLapSeen = 0;
+  $("#ticker").innerHTML = ""; tickQueue = [];
+}
+function fmtLap(s) { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, "0")}`; }
+function gapText(x, ref, t) {
+  // time for x to reach ref's current distance; laps if a full lap or more behind
+  const dr = Math.min(dist(ref, Math.min(t, ref.finT)), ref.finLaps), dx = dist(x, Math.min(t, x.finT)), down = Math.floor(dr - dx + 1e-9);
+  if (down >= 1) return `+${down} LAP${down > 1 ? "S" : ""}`;
+  return "+" + Math.max(0, timeTo(x, dr) - Math.min(t, ref.finT)).toFixed(gapMode === "int" ? 1 : 1);
+}
+function say(html, cls, color) { tickQueue.push({ html, cls, color }); pumpTicker(); }
+function pumpTicker() {
+  if (tickBusy || !tickQueue.length) return;
+  if (tickQueue.length > 3) tickQueue.splice(0, tickQueue.length - 3);   // keep it current at high speeds
+  tickBusy = true;
+  const m = tickQueue.shift(), el = document.createElement("div");
+  el.className = "tk " + (m.cls || ""); if (m.color) el.style.setProperty("--tc", m.color);
+  el.innerHTML = m.html; $("#ticker").appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); tickBusy = false; pumpTicker(); }, 350); }, REDUCED ? 2600 : 2200);
+}
+function renderTower() {
+  const t = sim.t, order = currentOrder(t), lead = order[0], finished = t >= SC.tLead;
+  const live = sim.playing && prevOrder && t >= prevT && t - prevT < lead.lap * 0.6;
+  const fast = fastestAt(t);
+  const prevPos = {}; (prevOrder || []).forEach((d, i) => prevPos[d] = i);
+  order.forEach((x, i) => {
+    const E = towerEls[x.Driver]; if (!E) return;
+    E.el.style.transform = `translateY(${i * ROW_H}px)`;
+    E.pos.textContent = i + 1;
+    const done = t >= x.finT;
+    E.el.classList.toggle("fin", done);
+    // gap
+    let g;
+    if (i === 0) g = finished ? "WIN" : "";
+    else if (done && finished) g = x.lapsDown > 0 ? `+${x.lapsDown} LAP${x.lapsDown > 1 ? "S" : ""}` : "+" + (gapMode === "int" ? x.finT - order[i - 1].finT : x.finT - lead.finT).toFixed(1);
+    else g = gapText(x, gapMode === "int" ? order[i - 1] : lead, t);
+    E.gap.textContent = g;
+    // last lap, purple if it is the fastest lap of the race
+    const ll = lastLapOf(x, t);
+    E.last.textContent = ll ? fmtLap(ll.lt) : "–";
+    E.last.classList.toggle("purple", !!(fast && ll && fast.d === x.Driver && fast.c === ll.c));
+    // places gained/lost (held for one lap), or actual result after the flag in replays
+    if (live && x.Driver in prevPos && prevPos[x.Driver] !== i) {
+      const delta = prevPos[x.Driver] - i, c = chg[x.Driver] || { n: 0 };
+      chg[x.Driver] = { n: c.n + delta, until: t + x.lap };
+      E.el.classList.remove("gain", "loss"); void E.el.offsetWidth; E.el.classList.add(delta > 0 ? "gain" : "loss");
+    }
+    if (!live && prevOrder && Math.abs(t - prevT) > lead.lap * 0.6) chg = {};
+    const c = chg[x.Driver];
+    if (SC.st === "done" && finished) {
+      const a = x.actual; E.chg.textContent = Number.isFinite(a) ? "P" + a : "DNF"; E.chg.className = "bt-chg " + (a === i + 1 ? "up" : "muted");
+    } else if (fast && fast.d === x.Driver && !(c && c.until > t && c.n)) {
+      E.chg.textContent = ""; E.chg.className = "bt-chg fast"; E.chg.title = "Fastest lap";
+    } else if (c && c.until > t && c.n) {
+      E.chg.textContent = (c.n > 0 ? "▲" : "▼") + Math.abs(c.n); E.chg.className = "bt-chg " + (c.n > 0 ? "up" : "down");
+    } else { E.chg.textContent = ""; E.chg.className = "bt-chg"; }
+  });
+  // race events for the ticker
+  if (live) {
+    order.forEach((x, i) => {
+      if (i === order.length - 1 || !(x.Driver in prevPos)) return;
+      const y = order[i + 1];
+      if (prevPos[x.Driver] > prevPos[y.Driver] && t < x.finT && Math.abs(dist(x, t) - dist(y, t)) < 0.5)
+        say(`<b>${x.Driver}</b> overtakes <b>${y.Driver}</b> for P${i + 1}`, "", tc(x.Team));
+    });
+    if (fast && (!prevFast || fast !== prevFast) && fast.c >= 2) say(`Fastest lap <b>${fast.d}</b> ${fmtLap(fast.lt)}`, "purple");
+    const lapNow = Math.floor(Math.min(dist(lead, t), lead.finLaps)) + 1;
+    if (lapNow === SC.laps && lastLapSeen < SC.laps && !finished) say("Final lap", "flag");
+    if (finished && lastLapSeen <= SC.laps && prevT < SC.tLead) say(`Chequered flag · <b>${lead.Driver}</b> wins`, "flag", tc(lead.Team));
+  }
+  prevFast = fast; prevOrder = order.map(x => x.Driver); prevT = t;
+  const lapNow = Math.max(1, Math.min(SC.laps, Math.floor(Math.min(dist(lead, t), lead.finLaps)) + 1));
+  lastLapSeen = finished ? SC.laps + 1 : lapNow;
+  const lapTxt = finished ? `LAP ${SC.laps}/${SC.laps}` : `LAP ${lapNow}/${SC.laps}`;
+  $("#btLap").textContent = lapTxt;
+  $("#hudLap").innerHTML = `LAP ${finished ? SC.laps : lapNow}<small>/${SC.laps}</small>`;
+  $("#hudClock").textContent = clock(Math.min(t, SC.end));
+  $("#btFast").textContent = fast ? `${surname(fast.d)} ${fmtLap(fast.lt)} · L${fast.c}` : "Fastest lap: –";
+  const flag = $("#hudFlag");
+  flag.textContent = finished ? "Chequered flag" : t <= 0 ? "Lights out" : "Green flag";
+  flag.className = "flag chip" + (finished ? " done" : " live");
+  $("#scrub").value = Math.round(Math.min(1, t / SC.end) * 1000);
+}
+document.querySelector(".bt-mode").addEventListener("click", (e) => {
+  const m = e.target.dataset.m; if (!m) return; gapMode = m;
+  document.querySelectorAll(".bt-mode button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.m === m)));
+  renderTower();
+});
+
+function renderPodium() {
+  const win = SC.rows[0];
+  $("#bigNo").textContent = String(SC.t.round).padStart(2, "0");
+  $("#bigTeam").textContent = hostCountry(SC.t);
+  $("#podium").innerHTML = SC.rows.slice(0, 3).map((x, i) => `
+    <div class="pod" style="--tc:${tc(x.Team)}"><span class="p">P${i + 1}</span>
+      <span class="n">${esc(NAMES[x.Driver] || x.Driver)}</span>
+      <span class="t">${esc(x.Team)} · from P${x.GridPosition}${i ? ` · +${(x.lap - SC.rows[0].lap).toFixed(3)}s/lap` : ` · ${lapStr(x.lap)}/lap`}</span></div>`).join("");
+}
+// country where the race is run, shortened where the full name would not fit
+const COUNTRY_SHORT = { "United States": "USA", "United Arab Emirates": "UAE", "United Kingdom": "Great Britain" };
+const hostCountry = (t) => (t.location === "Kuala Lumpur" ? "Malaysia" : COUNTRY_SHORT[t.country] || t.country).toUpperCase();
+const surname = (d) => (NAMES[d] || d).split(" ").pop().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+const lapStr = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, "0")}`; };
+
+function renderSimHead() {
+  const t = SC.t, st = SC.st;
+  $("#simEyebrow").textContent = `Round ${t.round} · ${st === "done" ? "Completed: prediction vs result" : st === "next" ? "Next race: live prediction" : st === "nodata" ? "Completed: result data pending" : "Upcoming: placeholder grid"}`;
+  $("#simTitle").textContent = t.name.replace("Grand Prix", "GP") + " 2026";
+  const rain = Math.round(SC.rain * 100);
+  $("#simMeta").innerHTML = `<span><b>${esc(short(t))}</b></span><span>${fmtDate(t.date)}</span><span>${SC.laps} laps</span><span>Rain ${rain}% · ${SC.temp.toFixed(1)}°C</span><span>Track map: ${esc(t.source)}</span>`;
+  let note;
+  if (st === "done") note = `Predicted from that weekend's real qualifying. The right-hand column shows where each driver actually finished. ${SC.inTrain ? "This race was part of the training data, so it is not an independent test." : "This race was held out of training, so it is a fair test."}`;
+  else if (st === "next") note = D.gridSource === "Q" ? "Using the official qualifying grid and your Inputs settings." : "Grid is Friday's Sprint Qualifying order until Grand Prix qualifying (Sat 21:00 SGT) is loaded. Change it on the Inputs page.";
+  else if (st === "nodata") note = "This round has been raced, but its timing data could not be downloaded yet (FastF1 rate limit). It uses the Inputs grid with this circuit's pole time as a what-if.";
+  else note = "No qualifying yet for this round. It uses the Inputs grid with this circuit's 2025 pole time, so treat it as a what-if.";
+  $("#simNote").textContent = note;
+}
+
+function loadRace(round, keepTime) {
+  const frac = keepTime && SC ? sim.t / SC.end : 0;
+  SC = scenario(round);
+  geo = buildGeo(SC.t);
+  prepRace();
+  buildTower();
+  sim.t = keepTime ? frac * SC.end : 0;
+  $("#raceSel").value = String(round);
+  renderSimHead(); renderPodium(); renderTower(); draw();
+}
+
+function tick(now) {
+  if (sim.playing) {
+    const dt = sim.last ? Math.min(0.1, (now - sim.last) / 1000) : 0;
+    sim.t = Math.min(SC.end, sim.t + dt * sim.speed);
+    if (sim.t >= SC.end) setPlaying(false);
+    draw(); renderTowerThrottled(now);
+  }
+  sim.last = now;
+  requestAnimationFrame(tick);
+}
+let lastTower = 0;
+function renderTowerThrottled(now) { if (now - lastTower > 120) { lastTower = now; renderTower(); } }
+function setPlaying(p) { sim.playing = p; const b = $("#play"); b.textContent = p ? "Pause" : "Play"; b.setAttribute("aria-pressed", String(p)); }
+
+$("#play").addEventListener("click", () => { if (sim.t >= SC.end) sim.t = 0; setPlaying(!sim.playing); });
+$("#restart").addEventListener("click", () => { sim.t = 0; draw(); renderTower(); });
+$("#finish").addEventListener("click", () => { sim.t = SC.end; setPlaying(false); draw(); renderTower(); });
+$("#scrub").addEventListener("input", (e) => { sim.t = e.target.value / 1000 * SC.end; draw(); renderTower(); });
+const SPEEDS = [10, 30, 60, 120, 300];
+$("#speeds").innerHTML = SPEEDS.map(s => `<button type="button" data-s="${s}" aria-pressed="${s === sim.speed}">${s}×</button>`).join("");
+$("#speeds").addEventListener("click", (e) => { const s = +e.target.dataset.s; if (!s) return; sim.speed = s; $("#speeds").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.s === s))); });
+$("#raceSel").innerHTML = D.tracks.map(t => `<option value="${t.round}" ${t.path ? "" : "disabled"}>R${t.round} · ${esc(short(t))}${status(t) === "next" ? " (next)" : ""}</option>`).join("");
+$("#raceSel").addEventListener("change", (e) => { loadRace(+e.target.value); });
+const stepRace = (dir) => { const rs = tracks.map(t => t.round), i = rs.indexOf(SC.t.round); loadRace(rs[(i + dir + rs.length) % rs.length]); if (!REDUCED) setPlaying(true); };
+$("#prevRace").addEventListener("click", () => stepRace(-1));
+$("#nextRace").addEventListener("click", () => stepRace(1));
+new ResizeObserver(() => { sizeCanvas(); measureInset(); draw(); }).observe(cv);
+
+/* ---------- tracks wall ---------- */
+function trackSvg(t) {
+  const P = t.path, xs = P.map(p => p[0]), ys = P.map(p => p[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const pad = 40, w = maxX - minX, h = maxY - minY, s = Math.min(1200 / (w || 1), 900 / (h || 1)) * 0.86;
+  const ox = (1200 - w * s) / 2, oy = (900 - h * s) / 2;
+  const d = P.map((p, i) => `${i ? "L" : "M"}${(ox + (p[0] - minX) * s).toFixed(1)} ${(oy + (p[1] - minY) * s).toFixed(1)}`).join("") + "Z";
+  return `<svg viewBox="0 0 1200 900" aria-hidden="true"><path d="${d}"/></svg>`;
+}
+$("#wall").innerHTML = D.tracks.map(t => {
+  const st = status(t);
+  const chip = st === "done" ? `<span class="chip done">Completed</span>` : st === "next" ? `<span class="chip live">Next race</span>` : `<span class="chip">Upcoming</span>`;
+  const end = new Date(t.date + "T12:00:00Z"), start = new Date(end - 2 * 864e5);
+  const range = `${start.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })} – ${fmtDate(t.date)}`;
+  return `<button class="card" type="button" data-round="${t.round}" ${t.path ? "" : "disabled"} aria-label="Simulate ${esc(t.name)}">
+    ${t.path ? trackSvg(t) : `<div class="muted" style="aspect-ratio:4/3;display:grid;place-items:center">No map data</div>`}
+    <span class="rno" aria-hidden="true">${String(t.round).padStart(2, "0")}</span><span class="nm">${esc(short(t))}</span><span class="dt">${range}</span><div class="row">${chip}</div></button>`;
+}).join("");
+$("#wall").addEventListener("click", (e) => { const c = e.target.closest(".card"); if (!c || c.disabled) return; loadRace(+c.dataset.round); location.hash = "sim"; });
+
+/* ---------- inputs ---------- */
+function renderInputsStatic() {
+  $("#boosts").innerHTML = Object.keys(S.boost).map((t, i) => `<div class="boost"><span><i class="sw" style="--tc:${tc(t)}"></i>${esc(t)}</span>
+    <input type="range" id="boost-${i}" data-team="${esc(t)}" min="0.5" max="1.5" step="0.01" value="${S.boost[t]}" aria-label="${esc(t)} boost"><output>${S.boost[t].toFixed(2)}</output></div>`).join("");
+  $("#rain").value = S.rain; $("#temp").value = S.temp; $("#strength").value = S.strength;
+  renderGrid();
+}
+function renderGrid() {
+  const rows = [...S.grid].sort((a, b) => a.GridPosition - b.GridPosition);
+  $("#gridTbl tbody").innerHTML = rows.map(g => `<tr>
+    <td><i class="sw" style="--tc:${tc(g.Team)}"></i> <b>${g.Driver}</b> <span class="muted hide-sm">${esc(NAMES[g.Driver] || "")}</span></td>
+    <td class="muted hide-sm">${esc(g.Team)}</td>
+    <td class="r"><input class="gp num" id="gp-${g.Driver}" type="number" min="1" max="${S.grid.length}" step="1" value="${g.GridPosition}" data-d="${g.Driver}" data-k="GridPosition" aria-label="${g.Driver} grid slot"></td>
+    <td class="r"><input class="num" id="q-${g.Driver}" type="number" step="0.001" value="${Number.isFinite(g.Q) ? g.Q : ""}" data-d="${g.Driver}" data-k="Q" aria-label="${g.Driver} qualifying lap"></td>
+    <td class="r num muted">${(M.wet[g.Driver] ?? 1).toFixed(3)}</td>
+    <td class="r num muted hide-sm">${Number.isFinite(g.CA) ? g.CA.toFixed(3) : "–"}</td></tr>`).join("");
+}
+function inputsChanged() {
+  $("#rainOut").textContent = `${S.rain}%`; $("#tempOut").textContent = `${S.temp.toFixed(1)}°C`; $("#strengthOut").textContent = `${S.strength.toFixed(1)}%`;
+  const wet = S.rain / 100 >= WET_THRESHOLD, chip = $("#wetChip");
+  chip.textContent = wet ? "Wet adjustment on: quali times × wet factor" : "Wet adjustment off: applies at 70%+";
+  chip.className = "chip" + (wet ? " live" : "");
+  if (SC && SC.st !== "done") loadRace(SC.t.round, true);
+}
+$("#rain").addEventListener("input", e => { S.rain = +e.target.value; inputsChanged(); });
+$("#temp").addEventListener("input", e => { S.temp = +e.target.value; inputsChanged(); });
+$("#strength").addEventListener("input", e => { S.strength = +e.target.value; inputsChanged(); });
+$("#boosts").addEventListener("input", e => { const t = e.target.dataset.team; if (!t) return; S.boost[t] = +e.target.value; e.target.nextElementSibling.textContent = S.boost[t].toFixed(2); inputsChanged(); });
+$("#gridTbl").addEventListener("change", e => {
+  const d = e.target.dataset.d, k = e.target.dataset.k; if (!d) return;
+  const g = S.grid.find(x => x.Driver === d), v = parseFloat(e.target.value);
+  if (k === "GridPosition") {
+    const n = Math.min(S.grid.length, Math.max(1, Math.round(v || g.GridPosition)));
+    const other = S.grid.find(x => x.GridPosition === n && x !== g);
+    if (other) other.GridPosition = g.GridPosition;
+    g.GridPosition = n; renderGrid();
+  } else g.Q = Number.isFinite(v) ? v : NaN;
+  inputsChanged();
+});
+$("#resetGrid").addEventListener("click", () => { S.grid = defaults().grid; renderGrid(); inputsChanged(); });
+$("#resetAll").addEventListener("click", () => { S = defaults(); renderInputsStatic(); inputsChanged(); });
+$("#gridNotice").textContent = D.gridSource === "Q"
+  ? "Official Grand Prix qualifying classification from FastF1. Change grid slots to apply penalties."
+  : "Friday's Sprint Qualifying order. Grand Prix qualifying runs Sat 21:00 SGT; it is loaded automatically before the race.";
+$("#forecast").innerHTML = D.weather.forecast.map(f => {
+  const sgt = (+f.t.slice(11, 13) + 8) % 24;
+  return `<div class="${f.t === D.weather.at ? "race" : ""}">${String(sgt).padStart(2, "0")}:00<b>${Math.round(f.temp)}°</b><b>${Math.round(f.pop * 100)}%</b></div>`;
+}).join("");
+$("#fcAt").textContent = D.weather.fetchedAt ? `· pulled ${D.weather.fetchedAt}` : "";
+
+/* ---------- model page ---------- */
+function niceTicks(lo, hi, n) { const span = hi - lo, m = Math.pow(10, Math.floor(Math.log10(span / n))); const step = [1, 2, 2.5, 5, 10].map(x => x * m).find(s => span / s <= n) || m * 10; const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6)); return out; }
+function renderModel() {
+  const m = M.metrics, refLap = (byRound[NEXT]?.poleTime || 95) * M.qualiToRaceFactor;
+  $("#stats").innerHTML = [
+    [`${m.mae.toFixed(3)}%`, `Mean error on race pace, about ${(m.mae / 100 * refLap).toFixed(2)} s/lap`],
+    [m.r2.toFixed(2), "R² on held-out races"],
+    [`${m.naiveMae.toFixed(3)}%`, "Baseline: predict the average"],
+    [`${m.qualiOnlyMae.toFixed(3)}%`, "Baseline: qualifying gap only"],
+  ].map(([v, k]) => `<div class="stat"><span class="v num">${v}</span><span class="k">${k}</span></div>`).join("");
+  $("#testRaces").textContent = `Trained on ${m.trainRows} driver-races from ${m.races - m.testRaces.length} races; tested on ${m.testRows} from ${m.testRaces.length} races it never saw: ${m.testRaces.join(", ")}.`;
+  const rid = (s) => { const [y, r] = s.split("-"); return `${y} round ${+r}`; };
+  $("#nFirst").textContent = rid(m.firstRace); $("#nLast").textContent = rid(m.lastRace); $("#nFactor").textContent = M.qualiToRaceFactor.toFixed(4);
+
+  const labels = ["Gap to pole (%)", "Grid position", "Team gap to pole (%)", "Rain", "Temperature"];
+  const svg = $("#imp"), W = 460, rowH = 32, l = 150, r = 56, H = labels.length * rowH + 6, mx = Math.max(...M.importance);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", "100%"); svg.style.maxWidth = W + "px";
+  svg.innerHTML = labels.map((name, i) => { const v = M.importance[i], w = mx ? v / mx * (W - l - r) : 0, y = 3 + i * rowH;
+    return `<text class="lbl" x="${l - 8}" y="${y + rowH / 2 + 4}" text-anchor="end">${name}</text><rect x="${l}" y="${y + 7}" width="${Math.max(w, 1)}" height="${rowH - 14}" fill="var(--red)"/><text x="${l + w + 6}" y="${y + rowH / 2 + 4}">${(v * 100).toFixed(1)}%</text>`; }).join("");
+
+  const rows = Object.keys(D.backtest).map(Number).sort((a, b) => a - b).map(rd => {
+    const sc = scenario(rd), pred = sc.rows.slice(0, 3).map(x => x.Driver);
+    const act = [...sc.rows].filter(x => Number.isFinite(x.actual)).sort((a, b) => a.actual - b.actual).slice(0, 3).map(x => x.Driver);
+    const win = pred[0] === act[0], hits = pred.filter(d => act.includes(d)).length;
+    return `<tr><td class="num">${rd}</td><td>${esc(short(sc.t))}</td><td><span class="chip ${sc.inTrain ? "" : "live"}">${sc.inTrain ? "Trained on" : "Held out"}</span></td>
+      <td>${pred.join(" · ")}</td><td>${act.join(" · ")}</td><td class="r ${win ? "up" : "muted"}">${win ? "Yes" : "No"}</td><td class="r num">${hits}/3</td>
+      <td><button type="button" data-round="${rd}">Replay</button></td></tr>`;
+  });
+  $("#backtest tbody").innerHTML = rows.join("");
+}
+$("#backtest").addEventListener("click", (e) => { const b = e.target.closest("button[data-round]"); if (!b) return; loadRace(+b.dataset.round); location.hash = "sim"; });
+
+/* ---------- routing ---------- */
+const ROUTES = ["sim", "tracks", "inputs", "model"];
+function route() {
+  const r = ROUTES.includes(location.hash.slice(1)) ? location.hash.slice(1) : "sim";
+  for (const k of ROUTES) $("#page-" + k).hidden = k !== r;
+  document.querySelectorAll(".tabs a, .icons a").forEach(a => a.dataset.route === r ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  if (r === "sim") { sizeCanvas(); measureInset(); draw(); } else setPlaying(false);
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- boot ---------- */
+renderInputsStatic(); renderModel();
+$("#rainOut").textContent = `${S.rain}%`;
+inputsChanged();
+sizeCanvas();
+loadRace(byRound[NEXT]?.path ? NEXT : tracks[0].round);
+route();
+if (!REDUCED) setPlaying(true);
+requestAnimationFrame(tick);
+})();
+</script>
