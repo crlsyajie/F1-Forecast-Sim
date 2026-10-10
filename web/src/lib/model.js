@@ -26,7 +26,7 @@ function predictRow(x) {
 }
 
 // rows: [{Driver, Team, GridPosition, Q}] -> adds gap, pace, lap, pos; returns {rows, pole}
-export function predictField(rows, { rain, temp, wetOn, boost, strength, pole: poleOverride }) {
+export function predictField(rows, { rain, temp, wetOn, pole: poleOverride }) {
   const r = rows.map((g) => ({ ...g, Team: team(g.Team) }));
   for (const x of r) {
     const wf = M.wet[x.Driver] ?? 1;
@@ -45,7 +45,7 @@ export function predictField(rows, { rain, temp, wetOn, boost, strength, pole: p
     v[0] *= M.qualiScale;
     v[1] *= M.qualiScale;
     x.model = predictRow(v);
-    x.pace = x.model + (boost ? (1 - (boost[x.Team] ?? 1)) * strength : 0);
+    x.pace = x.model;   // prediction comes straight from the model
     x.lap = pole * M.qualiToRaceFactor * (1 + x.pace / 100);
   }
   r.sort((a, b) => a.lap - b.lap || a.GridPosition - b.GridPosition);
@@ -56,8 +56,6 @@ export function predictField(rows, { rain, temp, wetOn, boost, strength, pole: p
 export const defaultInputs = () => ({
   rain: Math.round(D.weather.rain * 100),
   temp: Math.round(D.weather.temp * 2) / 2,
-  strength: 2.0,
-  boost: { ...M.boost },
   grid: D.grid.map((g) => ({
     Driver: g.Driver, Team: team(g.Team), GridPosition: g.GridPosition,
     Q: g["QualifyingTime (s)"], CA: g["CleanAirRacePace (s)"],
@@ -72,7 +70,7 @@ export function scenario(round, S) {
     const b = D.backtest[round];
     const res = predictField(
       b.rows.map((x) => ({ Driver: x.Driver, Team: x.Team, GridPosition: x.GridPosition, Q: x.Q })),
-      { rain: b.rain, temp: b.temp, wetOn: false, boost: null, strength: 0, pole: b.pole },
+      { rain: b.rain, temp: b.temp, wetOn: false, pole: b.pole },
     );
     const actual = Object.fromEntries(b.rows.map((x) => [x.Driver, x.Finish]));
     res.rows.forEach((x) => (x.actual = actual[x.Driver]));
@@ -80,7 +78,7 @@ export function scenario(round, S) {
   }
   const rain = S.rain / 100;
   const res = predictField(S.grid.map((x) => ({ ...x })), {
-    rain, temp: S.temp, wetOn: rain >= WET_THRESHOLD, boost: S.boost, strength: S.strength,
+    rain, temp: S.temp, wetOn: rain >= WET_THRESHOLD,
     pole: st === "next" ? undefined : t.poleTime,
   });
   return { t, laps, st, ...res, rain, temp: S.temp };

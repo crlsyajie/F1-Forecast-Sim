@@ -87,11 +87,6 @@ driver_wet_performance = {
     "LEC": 0.997029, "NOR": 0.963355, "OCO": 0.931002, "PIA": 1.004128, "RUS": 1.008377,
     "SAI": 0.993421, "STR": 0.952181, "TSU": 1.022479, "VER": 0.985092,
 }
-# cell 19
-reg_change_boost = {
-    "Mercedes": 1.15, "Ferrari": 1.05, "Red Bull": 0.95, "McLaren": 1.00, "Williams": 0.80,
-    "Aston Martin": 0.70, "Haas": 0.85, "Racing Bulls": 0.80, "Audi": 0.83, "Alpine": 0.80, "Cadillac": 0.70,
-}
 team_alias = {"Red Bull Racing": "Red Bull", "Haas F1 Team": "Haas"}
 
 grid = pd.read_csv(grid_csv)
@@ -121,7 +116,7 @@ out_obj = {
                 "testRaceIds": test_races["RaceId"].tolist(),
                 "firstRace": training_data["RaceId"].min(), "lastRace": training_data["RaceId"].max()},
     "importance": importance,
-    "wet": driver_wet_performance, "boost": reg_change_boost,
+    "wet": driver_wet_performance,
     "grid": json.loads(grid.round(3).to_json(orient="records")),
     "weather": weather,
 }

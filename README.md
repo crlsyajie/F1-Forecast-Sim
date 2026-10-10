@@ -8,7 +8,7 @@ An unofficial fan project that predicts Formula 1 race results with XGBoost and 
 
 - **Simulator** – cars race around the real track outline at their predicted pace, with a broadcast-style timing tower (intervals, overtakes, fastest lap) and race banners.
 - **Tracks** – every circuit on the 2026 calendar, drawn from FastF1 position data.
-- **Inputs** – rain chance, temperature, regulation-change boost per team, and an editable qualifying grid. The model reruns in the browser.
+- **Inputs** – rain chance, temperature and an editable qualifying grid. The model reruns in the browser.
 - **Model** – accuracy on held-out races, feature importance, and predicted vs actual podiums for completed 2026 rounds.
 
 ## How the model works

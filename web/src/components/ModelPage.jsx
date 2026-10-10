@@ -55,7 +55,7 @@ export default function ModelPage({ onReplay }) {
       <div className="panel">
         <div className="row between">
           <h3>2026 so far: predicted vs actual</h3>
-          <span className="muted" style={{ fontSize: ".8rem" }}>Model only, no boosts. Races marked "trained on" were part of the training data.</span>
+          <span className="muted" style={{ fontSize: ".8rem" }}>Races marked "trained on" were part of the training data.</span>
         </div>
         <div className="scroll">
           <table className="t">
@@ -82,7 +82,6 @@ export default function ModelPage({ onReplay }) {
           <li>XGBoost settings, monotone constraints, the ×10 scaling of qualifying gap and grid slot, and the race-grouped 80/20 split follow the original notebook. The trained trees run in your browser, so every input change reruns the same model.</li>
           <li>Predicted lap = wet-adjusted pole time × {M.qualiToRaceFactor.toFixed(4)} (median race-pace-to-pole ratio in the training races) × (1 + predicted %).</li>
           <li>At 70% chance of rain or more, qualifying times are multiplied by each driver's wet factor before gaps are computed.</li>
-          <li>The regulation-change boost is added after the model, scaled by the boost weight.</li>
           <li>The simulator gives each car its own lap-by-lap times around its predicted pace, so battles happen mid-race while the total race time matches the model. It has no pit stops, safety cars or tyre wear, so it shows pace, not strategy.</li>
           <li>Upcoming rounds after the next race have no qualifying yet. They use the Inputs grid and the circuit's 2025 pole time as placeholders.</li>
         </ol>

@@ -19,7 +19,7 @@ for rid, g in td[td["RaceId"].str.startswith("2026-")].groupby("RaceId"):
                "temp": float(g["Temperature"].iloc[0]),
                "rows": [{"Driver": r.Driver, "Team": r.Team, "GridPosition": int(r.GridPosition), "Q": float(r["BestQ (s)"]),
                          "Finish": None if pd.isna(r.FinishPosition) else int(r.FinishPosition)} for _, r in g.iterrows()]}
-data = {"model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","boost")},
+data = {"model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet")},
         "weather": M["weather"], "grid": M["grid"], "gridSource": grid_src, "tracks": tracks, "backtest": bt,
         "nextRound": nxt, "laps": LAPS, "shortNames": SHORT}
 os.makedirs("web/src/data", exist_ok=True)

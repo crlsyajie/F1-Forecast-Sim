@@ -49,24 +49,6 @@ export default function InputsPage({ inputs: S, setInputs }) {
               })}
             </div>
           </div>
-          <div className="field">
-            <span className="lab">Regulation-change boost <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>1.00 = neutral</span></span>
-            <div style={{ display: "grid", gap: 6 }}>
-              {Object.keys(S.boost).map((t, i) => (
-                <div className="boost" key={t}>
-                  <span><i className="sw" style={{ "--tc": tc(t) }} />{t}</span>
-                  <input type="range" id={`boost-${i}`} min="0.5" max="1.5" step="0.01" value={S.boost[t]} aria-label={`${t} boost`}
-                    onChange={(e) => set({ boost: { ...S.boost, [t]: +e.target.value } })} />
-                  <output>{S.boost[t].toFixed(2)}</output>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <label className="lab" htmlFor="strength">Boost weight <output>{S.strength.toFixed(1)}%</output></label>
-            <input type="range" id="strength" min="0" max="5" step="0.1" value={S.strength} onChange={(e) => set({ strength: +e.target.value })} />
-            <p className="muted" style={{ fontSize: ".8rem" }}>Lap-time change for a full 1.00 of boost. At 2.0%, a team at 1.15 gains 0.3% per lap; a team at 0.70 loses 0.6%. Set it to 0 to see the model alone.</p>
-          </div>
         </div>
         <div className="panel">
           <div className="row between"><h2>Qualifying grid</h2><button type="button" onClick={() => set({ grid: defaultInputs().grid })}>Reset grid</button></div>
