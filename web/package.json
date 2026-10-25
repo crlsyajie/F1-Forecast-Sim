@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "build:single": "vite build && node scripts/inline.mjs && node scripts/to-docs.mjs",
+    "build:single": "vite build && node scripts/to-docs.mjs && vite build --mode owner --outDir dist-owner && node scripts/inline.mjs",
     "preview": "vite preview",
     "build:docs": "vite build && node scripts/to-docs.mjs"
   },

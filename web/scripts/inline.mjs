@@ -2,7 +2,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const dist = new URL("../dist/", import.meta.url).pathname;
+// the private (owner) build: includes owner-only controls such as "Reveal now"
+const dist = new URL("../dist-owner/", import.meta.url).pathname;
 let html = readFileSync(join(dist, "index.html"), "utf8");
 html = html.replace(/<link rel="stylesheet"[^>]*href="\.\/(assets\/[^"]+\.css)"[^>]*>/g, (_, f) =>
   `<style>${readFileSync(join(dist, f), "utf8")}</style>`);
@@ -15,6 +16,7 @@ const out = new URL("../dist-single/", import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "index.html"), html);
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1].replace(/<meta charset[^>]*>|<meta name="viewport"[^>]*>/g, "");
-const body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
+// the inlined app code itself contains "</body>" strings, so cut at the LAST one (the real end of the page)
+const body = html.slice(html.indexOf("<body>") + 6, html.lastIndexOf("</body>"));
 writeFileSync(join(out, "artifact.html"), head.trim() + "\n" + body.trim() + "\n");
 console.log("dist-single/index.html", (html.length / 1024).toFixed(0) + " KB");

@@ -187,7 +187,8 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
       {!revealed && (
         <div className="reveal-row">
           <span className="muted">Spoiler-free: the predicted podium appears when the simulated race takes the chequered flag.</span>
-          <button type="button" className="reveal-btn" onClick={() => setRevealKey(raceKey)}>Reveal now</button>
+          {/* owner-only: compiled in only for the private Claude artifact build (vite --mode owner) */}
+          {import.meta.env.MODE === "owner" && <button type="button" className="reveal-btn" onClick={() => setRevealKey(raceKey)}>Reveal now</button>}
         </div>
       )}
       {revealed && <p className="picks">
