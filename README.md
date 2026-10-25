@@ -61,14 +61,17 @@ npm run build:docs # production build, copied to ../docs for GitHub Pages
 
 ## Refresh the data
 
+The site follows whichever race the main model (Formula 1 GP Predictor) is predicting.
+
+1. Update the main model with the `/f1-gp-update` skill (it pulls FastF1 / tif1 timing data and the OpenWeather forecast).
+2. Rebuild this site from its output:
+
 ```bash
-python3 -m venv venv
-venv/bin/pip install fastf1 xgboost==2.1.4 scikit-learn pandas
-echo "YOUR_OPENWEATHER_KEY" > owm_key      # never committed (see .gitignore)
-venv/bin/python pipeline/refresh.py        # rebuilds web/src/data and docs/; then commit and push
+venv/bin/python pipeline/refresh.py   # reads ~/.f1-gp-predictor/data read-only, retrains the secondary models, builds web/
 ```
 
-On macOS without Homebrew, XGBoost needs the OpenMP library; copying scikit-learn's bundled `libomp.dylib` next to `libxgboost.dylib` works.
+`refresh.py` makes no FastF1 or OpenWeather calls of its own (F1's live-timing server has returned 401 since Oct 2026).
+Commit and push to deploy.
 
 ## Deploy
 

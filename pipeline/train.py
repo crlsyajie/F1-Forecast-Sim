@@ -1,5 +1,5 @@
 # F1.ipynb cells 13, 16-27 (#new versions), run locally. Writes data/model.json for the page.
-import json, sys, warnings
+import json, os, sys, warnings
 warnings.filterwarnings("ignore")
 import numpy as np, pandas as pd
 from sklearn.impute import SimpleImputer
@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
 train_csv, grid_csv, pace_csv, owm_json, out = sys.argv[1:6]
+race_utc = sys.argv[6] if len(sys.argv) > 6 else "2026-10-11 12:00:00"
 
 feature_cols = ["GapFromPole (%)", "GridPosition", "TeamGapFromPole (%)", "RainProbability", "Temperature"]
 QUALI_SCALE = 10.0
@@ -116,22 +117,23 @@ driver_wet_performance = {
     "LEC": 0.997029, "NOR": 0.963355, "OCO": 0.931002, "PIA": 1.004128, "RUS": 1.008377,
     "SAI": 0.993421, "STR": 0.952181, "TSU": 1.022479, "VER": 0.985092,
 }
-team_alias = {"Red Bull Racing": "Red Bull", "Haas F1 Team": "Haas"}
+team_alias = {"Red Bull Racing": "Red Bull", "Haas F1 Team": "Haas", "Kick Sauber": "Audi", "RB": "Racing Bulls"}
 
 grid = pd.read_csv(grid_csv)
 grid["Team"] = grid["Team"].replace(team_alias)
-pace = pd.read_csv(pace_csv).set_index("Driver")["LapTime (s)"]
+pace = pd.read_csv(pace_csv).set_index("Driver")["LapTime (s)"] if pace_csv != "-" and os.path.exists(pace_csv) else pd.Series(dtype=float)
 grid["CleanAirRacePace (s)"] = grid["Driver"].map(pace)
 
 # cell 16: forecast closest to race start (20:00 SGT = 12:00 UTC)
 fc = json.load(open(owm_json))
-target = pd.Timestamp("2026-10-11 12:00:00")
+tmp = lambda x: float(x["main"]["temp"] if "main" in x else x["temp"])   # raw OpenWeather or the Predictor's flattened copy
+target = pd.Timestamp(race_utc)
 f = min(fc["list"], key=lambda f: abs(pd.Timestamp(f["dt_txt"]) - target))
-import os, datetime
-fetched = datetime.datetime.fromtimestamp(os.path.getmtime(owm_json)).strftime("%a %d %b, %H:%M")
-weather = {"rain": float(f.get("pop", 0)), "temp": float(f["main"]["temp"]), "at": f["dt_txt"], "fetchedAt": fetched,
-           "forecast": [{"t": x["dt_txt"], "temp": x["main"]["temp"], "pop": x.get("pop", 0)}
-                        for x in fc["list"] if x["dt_txt"].startswith("2026-10-11")]}
+import datetime
+fetched = fc.get("fetched_utc") or datetime.datetime.fromtimestamp(os.path.getmtime(owm_json)).strftime("%a %d %b, %H:%M")
+weather = {"rain": float(f.get("pop", 0)), "temp": tmp(f), "at": f["dt_txt"], "fetchedAt": fetched,
+           "forecast": [{"t": x["dt_txt"], "temp": tmp(x), "pop": x.get("pop", 0)}
+                        for x in fc["list"] if abs(pd.Timestamp(x["dt_txt"]) - target) <= pd.Timedelta(hours=13)]}
 
 out_obj = {
     "features": feature_cols, "qualiScale": QUALI_SCALE, "baseScore": base_score, "trees": ctrees,

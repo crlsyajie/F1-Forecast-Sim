@@ -7,22 +7,53 @@ const fmtGap = (s) => (s < 0.0005 ? "POLE" : "+" + s.toFixed(3));
 const fmtTime = (s) => { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(3).padStart(6, "0")}`; };
 
 function Schedule() {
-  const now = Date.now();
-  const items = [
-    ["Practice 1", "2026-10-09T08:30:00Z"], ["Sprint Qualifying", "2026-10-09T12:30:00Z"], ["Sprint", "2026-10-10T09:00:00Z"],
-    ["Qualifying", "2026-10-10T13:00:00Z"], ["Race", "2026-10-11T12:00:00Z"],
-  ];
+  // session times and status come from the Predictor's manifest (UTC)
+  const items = D.event?.sessions || [];
+  if (!items.length) return null;
   return (
     <div className="sched">
-      {items.map(([name, iso]) => {
-        const t = new Date(iso), done = t.getTime() + 75 * 60e3 < now;
-        const local = t.toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Singapore" });
+      {items.map((x) => {
+        const done = x.status === "data in" || new Date(x.utc.replace(" ", "T") + ":00Z").getTime() + 75 * 60e3 < Date.now();
+        const label = x.status === "data in" ? "Data in" : done ? "Done" : "Upcoming";
         return (
-          <div key={name} className={done ? "done" : ""}>
-            <b>{name}</b><span>{local} SGT</span><span className={"chip" + (done ? " done" : "")}>{done ? "Done" : "Upcoming"}</span>
+          <div key={x.name} className={done ? "done" : ""}>
+            <b>{x.name}</b><span>{x.utc.slice(5)} UTC</span><span className={"chip" + (done ? " done" : "")}>{label}</span>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function QualifyingResult() {
+  // real qualifying is in: show the grid the race will start from
+  const rows = [...D.grid].sort((a, b) => a.GridPosition - b.GridPosition);
+  const pole = rows[0]["QualifyingTime (s)"];
+  return (
+    <div className="panel">
+      <div className="row between">
+        <h2>Qualifying result</h2>
+        <span className="muted" style={{ fontSize: ".8rem" }}>Official grid · used by every model</span>
+      </div>
+      <div className="scroll">
+        <table className="t">
+          <thead><tr><th>Grid</th><th>Driver</th><th className="hide-sm">Team</th><th className="r">Best lap</th><th className="r">Gap</th></tr></thead>
+          <tbody>
+            {rows.map((x) => {
+              const q = x["QualifyingTime (s)"];
+              return (
+                <tr key={x.Driver}>
+                  <td className="num"><b>{x.GridPosition}</b></td>
+                  <td><i className="sw" style={{ "--tc": tc(x.Team) }} /> <b>{x.Driver}</b> <span className="muted hide-sm">{NAMES[x.Driver] || ""}</span></td>
+                  <td className="muted hide-sm">{x.Team}</td>
+                  <td className="r num">{Number.isFinite(q) ? fmtTime(q) : "No time"}</td>
+                  <td className="r num">{Number.isFinite(q) ? fmtGap(q - pole) : "–"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -163,10 +194,12 @@ export default function WeekendPage({ inputs, model, setModel, onWatchSprint }) 
         <h1>{t.name.replace("Grand Prix", "GP")} weekend</h1>
         <Schedule />
       </div>
-      {model === "main" && P?.qualifying_prediction && !predictorGap(D.nextRound)
-        ? <PredictorQualifying />
-        : D.quali && <Qualifying model={model === "main" ? "avg" : model} />}
-      {D.sprint && <Sprint model={model} inputs={inputs} onWatch={onWatchSprint} />}
+      {D.gridSource === "Q"
+        ? <QualifyingResult />
+        : model === "main" && P?.qualifying_prediction && !predictorGap(D.nextRound)
+          ? <PredictorQualifying />
+          : D.quali && D.quali.round === D.nextRound && <Qualifying model={model === "main" ? "avg" : model} />}
+      {D.sprint && D.sprint.round === D.nextRound && <Sprint model={model} inputs={inputs} onWatch={onWatchSprint} />}
     </main>
   );
 }

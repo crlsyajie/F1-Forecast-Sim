@@ -11,7 +11,9 @@ LAPS = {"Melbourne":58, "Shanghai":56, "Suzuka":53, "Sakhir":57, "Jeddah":50, "M
         "Lusail":57, "Yas Island":58, "Yas Marina":58, "Kuala Lumpur":56}
 SHORT = {"Miami Gardens":"Miami", "Montréal":"Montreal", "Monte Carlo":"Monaco", "Barcelona":"Catalunya", "Spielberg":"Red Bull Ring",
          "Spa-Francorchamps":"Spa", "Budapest":"Hungaroring", "São Paulo":"Interlagos", "Lusail":"Losail", "Yas Island":"Yas Marina", "Singapore":"Marina Bay"}
-nxt = next(t["round"] for t in tracks if "Singapore" in t["name"])
+# next race = the one the main model (Predictor) is predicting
+EV = json.load(open("data/event.json")) if os.path.exists("data/event.json") else {}
+nxt = EV.get("round") or next(t["round"] for t in tracks if "Singapore" in t["name"])
 bt = {}
 for rid, g in td[td["RaceId"].str.startswith("2026-")].groupby("RaceId"):
     rnd = int(rid[5:])
@@ -24,7 +26,7 @@ sprint = None
 if os.path.exists("data/sprint_singapore_2026.csv"):
     res = pd.read_csv("data/sprint_singapore_2026.csv")
     full = int(res["Laps"].max())
-    sprint = {"round": nxt, "laps": full,
+    sprint = {"round": 17, "laps": full,   # Singapore 2026 sprint (the files are Singapore-only)
               "grid": [{"Driver": r.Driver, "Team": r.Team, "GridPosition": int(r.GridPosition), "Q": float(r["QualifyingTime (s)"])} for _, r in sq.iterrows()],
               "result": {r.Driver: (int(r.Position) if r.Laps >= full - 1 else None) for _, r in res.iterrows()}}
 # Main model: the Formula 1 GP Predictor's latest output (written by the /f1-gp-update skill; read-only here)
@@ -41,7 +43,7 @@ if os.path.exists(PRED):
 else:
     print("predictor: no prediction.json found at", PRED)
 quali = json.load(open("data/quali_model.json")) if os.path.exists("data/quali_model.json") else None
-data = {"predictor": predictor, "quali": quali, "sprint": sprint, "model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","rf","models")},
+data = {"event": EV, "predictor": predictor, "quali": quali, "sprint": sprint, "model": {k: M[k] for k in ("features","qualiScale","baseScore","trees","imputerMedians","qualiToRaceFactor","metrics","importance","wet","rf","models")},
         "weather": M["weather"], "grid": M["grid"], "gridSource": grid_src, "tracks": tracks, "backtest": bt,
         "nextRound": nxt, "laps": LAPS, "shortNames": SHORT}
 os.makedirs("web/src/data", exist_ok=True)

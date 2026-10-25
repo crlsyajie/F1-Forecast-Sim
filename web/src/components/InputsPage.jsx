@@ -38,13 +38,13 @@ export default function InputsPage({ inputs: S, setInputs }) {
             <input type="range" id="temp" min="10" max="40" step="0.5" value={S.temp} onChange={(e) => set({ temp: +e.target.value })} />
           </div>
           <div className="field">
-            <span className="lab">OpenWeather forecast, race day (SGT) <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>{D.weather.fetchedAt ? `· pulled ${D.weather.fetchedAt}` : ""}</span></span>
+            <span className="lab">OpenWeather forecast around race start (UTC) <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>{D.weather.fetchedAt ? `· pulled ${D.weather.fetchedAt}` : ""}</span></span>
             <div className="fc">
               {D.weather.forecast.map((f) => {
-                const sgt = (+f.t.slice(11, 13) + 8) % 24;
+                const hr = f.t.slice(11, 13);
                 return (
                   <div key={f.t} className={f.t === D.weather.at ? "race" : ""}>
-                    {String(sgt).padStart(2, "0")}:00<b>{Math.round(f.temp)}°</b><b>{Math.round(f.pop * 100)}%</b>
+                    {hr}:00<b>{Math.round(f.temp)}°</b><b>{Math.round(f.pop * 100)}%</b>
                   </div>
                 );
               })}
@@ -55,7 +55,7 @@ export default function InputsPage({ inputs: S, setInputs }) {
           <div className="row between"><h2>Qualifying grid</h2><button type="button" onClick={() => set({ grid: defaultInputs().grid })}>Reset grid</button></div>
           <p className="note">{D.gridSource === "Q"
             ? "Official Grand Prix qualifying classification from FastF1. Change grid slots to apply penalties."
-            : "Friday's Sprint Qualifying order. Grand Prix qualifying runs Sat 21:00 SGT; it is loaded automatically before the race."}</p>
+            : "The main model's predicted qualifying order. It's replaced by the official grid once qualifying is in."}</p>
           <div className="scroll">
             <table className="t">
               <thead><tr><th>Driver</th><th className="hide-sm">Team</th><th className="r">Grid</th><th className="r">Quali lap (s)</th><th className="r">Wet factor</th><th className="r hide-sm">FP1 long run (s)</th></tr></thead>

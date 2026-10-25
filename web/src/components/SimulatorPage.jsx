@@ -33,7 +33,7 @@ function useTicker() {
 function headNote(SC) {
   if (SC.st === "sprint") return "Sprint replay: the model runs on Friday's Sprint Qualifying grid over the real 20-lap sprint distance. After the flag, the right-hand column shows the real sprint result (DNF = retired).";
   if (SC.st === "done") return `Predicted from that weekend's real qualifying. After the flag, the right-hand column shows where each driver actually finished. ${SC.inTrain ? "This race was part of the training data, so it is not an independent test." : "This race was held out of training, so it is a fair test."}`;
-  if (SC.st === "next") return D.gridSource === "Q" ? "Using the official qualifying grid and your Inputs settings." : "Grid is Friday's Sprint Qualifying order until Grand Prix qualifying (Sat 21:00 SGT) is loaded. Change it on the Inputs page.";
+  if (SC.st === "next") return D.gridSource === "Q" ? "Using the official qualifying grid and your Inputs settings." : "Grid is the main model's predicted qualifying order until real qualifying is in. Change it on the Inputs page.";
   if (SC.st === "nodata") return "This round has been raced, but its timing data could not be downloaded yet. It uses the Inputs grid with this circuit's pole time as a what-if.";
   return "No qualifying yet for this round. It uses the Inputs grid with this circuit's 2025 pole time, so treat it as a what-if.";
 }
