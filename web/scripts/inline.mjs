@@ -11,7 +11,8 @@ html = html.replace(/<script type="module"[^>]*src="\.\/(assets\/[^"]+\.js)"[^>]
   `<script type="module">${readFileSync(join(dist, f), "utf8").replace(/<\/script/gi, "<\\/script")}</script>`);
 // move the module script to the end of <body> so #root exists when it runs
 const m = html.match(/<script type="module">[\s\S]*?<\/script>/);
-if (m) html = html.replace(m[0], "").replace("</body>", m[0] + "</body>");
+// function replacers: a plain string would make "$&", "$'" etc. in the bundle act as replacement patterns
+if (m) html = html.replace(m[0], () => "").replace("</body>", () => m[0] + "</body>");
 const out = new URL("../dist-single/", import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, "index.html"), html);
