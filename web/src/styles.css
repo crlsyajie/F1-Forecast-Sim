@@ -260,6 +260,18 @@ footer { color: var(--muted); font-size: .72rem; text-transform: uppercase; lett
 .main-note { border-left-color: var(--red); }
 .warn-note { border-left-color: #f2b53a; background: rgba(242, 181, 58, .08); }
 
+/* Spoiler-free podium: hidden cards until the flag, then slide in from the top (P3, P2, P1) */
+.podium { position: relative; }
+.pod-hidden { background: repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 10px, transparent 10px 20px), rgba(14,14,15,.45); }
+.pod-hidden::before { background: var(--line-2); }
+.pod-hidden .p { color: var(--ghost) !important; }
+.pod-hidden .n { color: var(--ghost); letter-spacing: .3em; }
+.reveal-row { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; font-size: .8rem; }
+.reveal-btn { padding: 6px 12px; font-size: .62rem; }
+.pod-in { animation: podIn .7s cubic-bezier(.2, .8, .2, 1) var(--d, 0s) both; }
+@keyframes podIn { from { opacity: 0; transform: translateY(-46px); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pod-in { animation: none; } }
+
 /* Weekend page */
 .sched { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 1px solid var(--line); }
 .sched > div { display: grid; gap: 4px; padding: 10px 12px; border-right: 1px solid var(--line); font-size: .78rem; color: var(--muted); }

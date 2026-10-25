@@ -127,6 +127,11 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
   const chooseMode = (m) => { modeRef.current = m; setMode(m); B.current.prevOrder = null; updateUi(false); };
 
   const t = SC.t, win = SC.rows[0], v = view;
+  // spoiler-free: the predicted podium stays hidden until the simulated race reaches the chequered flag
+  const raceKey = `${round}-${sess}-${inputs.model}`;
+  const [revealKey, setRevealKey] = useState(null);
+  useEffect(() => { if (v?.finished) setRevealKey(raceKey); }, [v?.finished, raceKey]);
+  const revealed = revealKey === raceKey;
   const flagText = !v ? "Lights out" : v.finished ? "Chequered flag" : v.t <= 0 ? "Lights out" : "Green flag";
 
   return (
@@ -162,9 +167,16 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
         {SC.fallback && <p className="note warn-note">Predictor prediction not available: {SC.fallback} Showing the secondary model (Average) instead.</p>}
       </div>
 
-      <div className="podium" aria-label="Predicted podium">
-        {SC.rows.slice(0, 3).map((x, i) => (
-          <div className="pod" key={x.Driver} style={{ "--tc": tc(x.Team) }}>
+      <div className={"podium" + (revealed ? "" : " sealed")} aria-label="Predicted podium" aria-live="polite">
+        {!revealed && [1, 2, 3].map((p) => (
+          <div className="pod pod-hidden" key={"hidden-" + p}>
+            <span className="p">P{p}</span>
+            <span className="n">? ? ?</span>
+            <span className="t">Revealed at the chequered flag</span>
+          </div>
+        ))}
+        {revealed && SC.rows.slice(0, 3).map((x, i) => (
+          <div className="pod pod-in" key={x.Driver} style={{ "--tc": tc(x.Team), "--d": `${(2 - i) * 0.28}s` }}>
             <span className="p">P{i + 1}</span>
             <span className="n">{NAMES[x.Driver] || x.Driver}</span>
             <span className="t">{x.Team} · from P{x.GridPosition} · {Number.isFinite(x.win) ? `Win ${x.win.toFixed(0)}% · Podium ${x.podium.toFixed(0)}%` : i ? `+${(x.lap - win.lap).toFixed(3)}s/lap` : `${fmtLap(x.lap)}/lap`}</span>
@@ -172,12 +184,18 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
         ))}
       </div>
 
-      <p className="picks">
+      {!revealed && (
+        <div className="reveal-row">
+          <span className="muted">Spoiler-free: the predicted podium appears when the simulated race takes the chequered flag.</span>
+          <button type="button" className="reveal-btn" onClick={() => setRevealKey(raceKey)}>Reveal now</button>
+        </div>
+      )}
+      {revealed && <p className="picks">
         <span className="muted">Model picks to win:</span>
         {Object.entries(MODELS).map(([k, label]) => (
           <span key={k} className={inputs.model === k ? "on" : ""}>{label} <b>{SC.picks[k] ? surname(SC.picks[k]) : "n/a"}</b></span>
         ))}
-      </p>
+      </p>}
 
       <div className="sim">
         <div className="stage">
@@ -230,7 +248,7 @@ export default function SimulatorPage({ round, setRound, inputs, setModel, sessi
             <button id="play" type="button" aria-pressed={playing} onClick={() => { if (sim.current.t >= race.end) seek(0); setPlay(!playing); }}>
               {playing ? "Pause" : "Play"}
             </button>
-            <button type="button" onClick={() => seek(0)}>Restart</button>
+            <button type="button" onClick={() => { setRevealKey(null); seek(0); }}>Restart</button>
             <div className="sp" role="group" aria-label="Playback speed">
               {SPEEDS.map((s) => (
                 <button key={s} type="button" aria-pressed={speed === s} onClick={() => { sim.current.speed = s; setSpeed(s); }}>{s}×</button>
